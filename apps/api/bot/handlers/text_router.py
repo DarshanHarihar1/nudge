@@ -10,6 +10,7 @@ from db.queries import get_user
 from services.balance import handle_balance_capture
 from utils.balance_parser import parse_balance
 from bot.handlers.expense import expense_handler
+from bot.handlers.nl_query import is_query, process_nl_query
 
 
 async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -22,6 +23,7 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     if not user:
         return
 
+    # 1. Balance reply (when prompted) — a bare number is captured as balance
     if user.get("awaiting_balance"):
         amount = parse_balance(text)
         if amount is not None:
@@ -34,4 +36,10 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             )
             return
 
+    # 2. Natural-language query — message ending with "?"
+    if is_query(text):
+        await process_nl_query(update, context, text)
+        return
+
+    # 3. Otherwise treat as an expense to log
     await expense_handler(update, context)
