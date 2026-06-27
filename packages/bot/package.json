@@ -1,0 +1,22 @@
+{
+  "name": "@nudge/bot",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@nudge/ai": "workspace:*",
+    "@nudge/db": "workspace:*",
+    "grammy": "^1.36.3"
+  },
+  "devDependencies": {
+    "@nudge/config": "workspace:*",
+    "@types/node": "^20",
+    "typescript": "^5.8.3"
+  }
+}
