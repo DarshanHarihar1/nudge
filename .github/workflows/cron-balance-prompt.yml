@@ -1,0 +1,19 @@
+name: Balance Prompt
+
+on:
+  schedule:
+    # Every 14 days at 10:00 IST = 04:30 UTC
+    # GitHub Actions doesn't support "every N days" natively, so this runs on
+    # the 1st and 15th of each month as the closest approximation to biweekly.
+    - cron: "30 4 1,15 * *"
+  workflow_dispatch:
+
+jobs:
+  prompt:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send balance prompt
+        run: |
+          curl -sf -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.APP_URL }}/cron/balance-prompt"

@@ -1,0 +1,15 @@
+name: Keep Warm
+
+on:
+  schedule:
+    # Every 10 minutes — prevents Render cold starts and Supabase inactivity pause
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping health endpoint
+        run: |
+          curl -sf "${{ secrets.APP_URL }}/health" || echo "Health check failed (non-fatal)"

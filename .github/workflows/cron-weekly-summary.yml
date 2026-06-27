@@ -1,0 +1,17 @@
+name: Weekly Summary
+
+on:
+  schedule:
+    # Sunday 19:00 IST = Sunday 13:30 UTC
+    - cron: "30 13 * * 0"
+  workflow_dispatch:
+
+jobs:
+  summary:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger weekly summary
+        run: |
+          curl -sf -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.APP_URL }}/cron/weekly-summary"

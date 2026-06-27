@@ -1,0 +1,17 @@
+name: Apply Recurring Items
+
+on:
+  schedule:
+    # 00:05 IST = 18:35 UTC previous day
+    - cron: "35 18 * * *"
+  workflow_dispatch:
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger apply-recurring endpoint
+        run: |
+          curl -sf -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.APP_URL }}/cron/apply-recurring"

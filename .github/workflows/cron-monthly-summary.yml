@@ -1,0 +1,17 @@
+name: Monthly Summary
+
+on:
+  schedule:
+    # 1st of month 09:00 IST = 03:30 UTC
+    - cron: "30 3 1 * *"
+  workflow_dispatch:
+
+jobs:
+  summary:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger monthly summary
+        run: |
+          curl -sf -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.APP_URL }}/cron/monthly-summary"
