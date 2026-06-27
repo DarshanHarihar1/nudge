@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
@@ -8,11 +10,14 @@ from db.queries import (
     create_expense,
     delete_expense,
     get_category_by_name,
+    get_category_mtd_spend,
     get_expense_by_update_id,
     get_user,
     list_categories,
     recategorize_expense,
+    update_category_budget_alert,
 )
+from utils.timezone import current_month_str
 
 CB_OK = "exp:ok:"
 CB_RECAT = "exp:recat:"
@@ -32,6 +37,49 @@ def _confirm_keyboard(expense_id: str) -> InlineKeyboardMarkup:
             ]
         ]
     )
+
+
+async def _check_budget_alert(
+    pool,
+    bot,
+    chat_id: int,
+    user: dict,
+    category: dict,
+    currency: str,
+) -> None:
+    """Send at most one 80% and one 100% budget alert per category per month."""
+    budget = category.get("monthly_budget")
+    if budget is None:
+        return
+
+    budget_dec = Decimal(str(budget))
+    if budget_dec <= 0:
+        return
+
+    spent = await get_category_mtd_spend(pool, str(user["id"]), str(category["id"]))
+    pct = float(spent / budget_dec * 100)
+    this_month = current_month_str()
+
+    if pct >= 100 and category.get("budget_100_sent_month") != this_month:
+        await update_category_budget_alert(pool, str(category["id"]), 100, this_month)
+        await bot.send_message(
+            chat_id=chat_id,
+            text=(
+                f"🚨 {category['emoji']} {category['name']}: "
+                f"{format_amount(spent, currency)} / {format_amount(budget_dec, currency)} "
+                f"this month ({pct:.0f}%) — budget exceeded!"
+            ),
+        )
+    elif pct >= 80 and category.get("budget_80_sent_month") != this_month:
+        await update_category_budget_alert(pool, str(category["id"]), 80, this_month)
+        await bot.send_message(
+            chat_id=chat_id,
+            text=(
+                f"⚠️ {category['emoji']} {category['name']}: "
+                f"{format_amount(spent, currency)} / {format_amount(budget_dec, currency)} "
+                f"this month ({pct:.0f}%) — approaching budget."
+            ),
+        )
 
 
 async def expense_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -92,6 +140,16 @@ async def expense_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         message_id=thinking_msg.message_id,
         text=f"Logged {label}",
         reply_markup=_confirm_keyboard(str(expense["id"])),
+    )
+
+    # Budget alert fires after the expense is logged (status='pending' is still counted)
+    await _check_budget_alert(
+        pool=pool,
+        bot=context.bot,
+        chat_id=update.effective_chat.id,
+        user=user,
+        category=category,
+        currency=classified.currency,
     )
 
 
