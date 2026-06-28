@@ -1,11 +1,12 @@
 "use client";
 import { useState } from "react";
 import { CATS, Txn } from "../lib/demoData";
+import type { Analytics } from "../lib/api";
 import { fmtINR, dateShort, isoDate, pad2 } from "../lib/format";
 
 type RangeKey = "this" | "last" | "last3" | "custom";
 
-interface Props { txns: Txn[]; isEmpty: boolean; }
+interface Props { txns: Txn[]; isEmpty: boolean; analytics?: Analytics | null; }
 
 function inRange(date: string, key: RangeKey, from: string, to: string): boolean {
   if (key === "this")   return date >= "2026-06-01" && date <= "2026-06-30";
@@ -15,7 +16,7 @@ function inRange(date: string, key: RangeKey, from: string, to: string): boolean
   return true;
 }
 
-export default function Spending({ txns, isEmpty }: Props) {
+export default function Spending({ txns, isEmpty, analytics }: Props) {
   const [range, setRange] = useState<RangeKey>("this");
   const [from, setFrom] = useState("2026-06-01");
   const [to, setTo] = useState("2026-06-28");

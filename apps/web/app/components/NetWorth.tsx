@@ -2,10 +2,12 @@
 import { SNAPS } from "../lib/demoData";
 import { fmtINR, fmtSigned } from "../lib/format";
 
-interface Props { isEmpty: boolean; savRate: number; savColor: string; }
+interface Props { isEmpty: boolean; savRate: number; savColor: string; balanceTrend?: { date: string; balance: number }[]; }
 
-export default function NetWorth({ isEmpty, savRate, savColor }: Props) {
-  const snaps = SNAPS;
+export default function NetWorth({ isEmpty, savRate, savColor, balanceTrend }: Props) {
+  const snaps = balanceTrend && balanceTrend.length >= 2
+    ? balanceTrend.map((p) => ({ m: p.date.slice(0, 7), v: p.balance }))
+    : SNAPS;
   const vals = snaps.map(s => s.v);
   const mn = Math.min(...vals), mx = Math.max(...vals);
   const W = 300, H = 110, pd = 10;
