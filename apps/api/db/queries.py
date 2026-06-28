@@ -486,3 +486,321 @@ async def mark_recurring_applied(
         applied_date,
         item_id,
     )
+
+
+async def get_recurring_credit_total(
+    pool: asyncpg.Pool, user_id: str, start: datetime, end: datetime
+) -> Decimal:
+    """Sum of active recurring credits (income) configured for the user."""
+    val = await pool.fetchval(
+        """
+        SELECT COALESCE(SUM(amount::numeric), 0)
+        FROM expenses
+        WHERE user_id = $1 AND status = 'confirmed'
+          AND source = 'recurring_credit'
+          AND spent_at >= $2 AND spent_at < $3
+        """,
+        user_id,
+        start,
+        end,
+    )
+    return val or Decimal(0)
+
+
+async def get_existing_recurring_merchants(pool: asyncpg.Pool, user_id: str) -> set[str]:
+    """Merchant/name strings already configured as recurring items."""
+    rows = await pool.fetch(
+        "SELECT name FROM recurring_items WHERE user_id = $1", user_id
+    )
+    return {r["name"] for r in rows if r["name"]}
+
+
+# ── Analytics ─────────────────────────────────────────────────────────────────
+
+async def get_total_spend(
+    pool: asyncpg.Pool, user_id: str, start: datetime, end: datetime
+) -> Decimal:
+    val = await pool.fetchval(
+        """
+        SELECT COALESCE(SUM(amount::numeric), 0)
+        FROM expenses
+        WHERE user_id = $1 AND status = 'confirmed'
+          AND source != 'recurring_credit'
+          AND spent_at >= $2 AND spent_at < $3
+        """,
+        user_id,
+        start,
+        end,
+    )
+    return val or Decimal(0)
+
+
+async def get_count_expenses(
+    pool: asyncpg.Pool, user_id: str, start: datetime, end: datetime
+) -> int:
+    val = await pool.fetchval(
+        """
+        SELECT COUNT(*)
+        FROM expenses
+        WHERE user_id = $1 AND status = 'confirmed'
+          AND source != 'recurring_credit'
+          AND spent_at >= $2 AND spent_at < $3
+        """,
+        user_id,
+        start,
+        end,
+    )
+    return val or 0
+
+
+async def get_sum_by_category(
+    pool: asyncpg.Pool,
+    user_id: str,
+    start: datetime,
+    end: datetime,
+    category: Optional[str] = None,
+) -> list[dict]:
+    if category:
+        rows = await pool.fetch(
+            """
+            SELECT c.name, c.emoji,
+                   COALESCE(SUM(e.amount::numeric), 0) AS amount,
+                   c.monthly_budget AS budget
+            FROM categories c
+            LEFT JOIN expenses e
+              ON e.category_id = c.id AND e.status = 'confirmed'
+              AND e.source != 'recurring_credit'
+              AND e.spent_at >= $2 AND e.spent_at < $3
+            WHERE c.user_id = $1 AND c.name = $4
+            GROUP BY c.id, c.name, c.emoji, c.monthly_budget
+            """,
+            user_id, start, end, category,
+        )
+    else:
+        rows = await pool.fetch(
+            """
+            SELECT c.name, c.emoji,
+                   COALESCE(SUM(e.amount::numeric), 0) AS amount,
+                   c.monthly_budget AS budget
+            FROM categories c
+            LEFT JOIN expenses e
+              ON e.category_id = c.id AND e.status = 'confirmed'
+              AND e.source != 'recurring_credit'
+              AND e.spent_at >= $2 AND e.spent_at < $3
+            WHERE c.user_id = $1
+            GROUP BY c.id, c.name, c.emoji, c.monthly_budget
+            HAVING COALESCE(SUM(e.amount::numeric), 0) > 0
+            ORDER BY amount DESC
+            """,
+            user_id, start, end,
+        )
+    return [dict(r) for r in rows]
+
+
+async def get_spend_over_time(
+    pool: asyncpg.Pool, user_id: str, start: datetime, end: datetime
+) -> list[dict]:
+    rows = await pool.fetch(
+        """
+        SELECT to_char(date_trunc('day', spent_at AT TIME ZONE 'Asia/Kolkata'), 'YYYY-MM-DD') AS date,
+               SUM(amount::numeric) AS amount
+        FROM expenses
+        WHERE user_id = $1 AND status = 'confirmed'
+          AND source != 'recurring_credit'
+          AND spent_at >= $2 AND spent_at < $3
+        GROUP BY 1
+        ORDER BY 1
+        """,
+        user_id, start, end,
+    )
+    return [dict(r) for r in rows]
+
+
+async def get_top_merchants(
+    pool: asyncpg.Pool, user_id: str, start: datetime, end: datetime, limit: int = 10
+) -> list[dict]:
+    rows = await pool.fetch(
+        """
+        SELECT merchant,
+               SUM(amount::numeric) AS amount,
+               COUNT(*) AS count
+        FROM expenses
+        WHERE user_id = $1 AND status = 'confirmed'
+          AND source != 'recurring_credit'
+          AND merchant IS NOT NULL AND merchant != ''
+          AND spent_at >= $2 AND spent_at < $3
+        GROUP BY merchant
+        ORDER BY amount DESC
+        LIMIT $4
+        """,
+        user_id, start, end, limit,
+    )
+    return [dict(r) for r in rows]
+
+
+async def get_balance_trend(pool: asyncpg.Pool, user_id: str) -> list[dict]:
+    rows = await pool.fetch(
+        """
+        SELECT to_char(recorded_at AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD') AS date,
+               balance
+        FROM balance_snapshots
+        WHERE user_id = $1
+        ORDER BY recorded_at
+        """,
+        user_id,
+    )
+    return [dict(r) for r in rows]
+
+
+async def get_latest_reconciliation(pool: asyncpg.Pool, user_id: str) -> Optional[dict]:
+    row = await pool.fetchrow(
+        "SELECT * FROM reconciliations WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1",
+        user_id,
+    )
+    return dict(row) if row else None
+
+
+# ── Expenses: filtered list + patch (dashboard) ───────────────────────────────
+
+async def list_expenses_filtered(
+    pool: asyncpg.Pool,
+    user_id: str,
+    *,
+    page: int = 1,
+    limit: int = 25,
+    category: Optional[str] = None,
+    start: Optional[datetime] = None,
+    end: Optional[datetime] = None,
+    q: Optional[str] = None,
+) -> tuple[list[dict], int]:
+    """Returns (rows, total_count)."""
+    conds = ["e.user_id = $1"]
+    args: list = [user_id]
+    idx = 2
+
+    if category:
+        conds.append(f"c.name = ${idx}")
+        args.append(category)
+        idx += 1
+    if start:
+        conds.append(f"e.spent_at >= ${idx}")
+        args.append(start)
+        idx += 1
+    if end:
+        conds.append(f"e.spent_at < ${idx}")
+        args.append(end)
+        idx += 1
+    if q:
+        conds.append(f"(e.merchant ILIKE ${idx} OR e.note ILIKE ${idx})")
+        args.append(f"%{q}%")
+        idx += 1
+
+    where = " AND ".join(conds)
+
+    total = await pool.fetchval(
+        f"""
+        SELECT COUNT(*)
+        FROM expenses e
+        LEFT JOIN categories c ON e.category_id = c.id
+        WHERE {where}
+        """,
+        *args,
+    )
+
+    offset = max(0, (page - 1) * limit)
+    rows = await pool.fetch(
+        f"""
+        SELECT e.*, c.name AS category_name, c.emoji AS category_emoji
+        FROM expenses e
+        LEFT JOIN categories c ON e.category_id = c.id
+        WHERE {where}
+        ORDER BY e.spent_at DESC
+        LIMIT ${idx} OFFSET ${idx + 1}
+        """,
+        *args, limit, offset,
+    )
+    return [dict(r) for r in rows], (total or 0)
+
+
+async def get_expense(pool: asyncpg.Pool, expense_id: str) -> Optional[dict]:
+    row = await pool.fetchrow("SELECT * FROM expenses WHERE id = $1", expense_id)
+    return dict(row) if row else None
+
+
+async def update_expense(pool: asyncpg.Pool, expense_id: str, **data) -> Optional[dict]:
+    fields = []
+    values = []
+    idx = 1
+    for key in ("amount", "category_id", "note", "merchant", "spent_at"):
+        if key in data:
+            fields.append(f"{key} = ${idx}")
+            values.append(str(data[key]) if key == "amount" else data[key])
+            idx += 1
+    if not fields:
+        return await get_expense(pool, expense_id)
+    values.append(expense_id)
+    row = await pool.fetchrow(
+        f"UPDATE expenses SET {', '.join(fields)} WHERE id = ${idx} RETURNING *",
+        *values,
+    )
+    return dict(row) if row else None
+
+
+# ── Recurring suggestions (detection) ─────────────────────────────────────────
+
+async def get_suppressed_merchants(pool: asyncpg.Pool, user_id: str) -> set[str]:
+    rows = await pool.fetch(
+        "SELECT merchant FROM recurring_suggestions WHERE user_id = $1 AND status = 'suppressed'",
+        user_id,
+    )
+    return {r["merchant"] for r in rows}
+
+
+async def upsert_suggestion(
+    pool: asyncpg.Pool, user_id: str, merchant: str, amount: float
+) -> dict:
+    """Create or refresh a pending suggestion; leaves suppressed/accepted rows untouched."""
+    row = await pool.fetchrow(
+        """
+        INSERT INTO recurring_suggestions (user_id, merchant, amount, status)
+        VALUES ($1, $2, $3, 'pending')
+        ON CONFLICT (user_id, merchant) DO UPDATE
+          SET amount = EXCLUDED.amount
+          WHERE recurring_suggestions.status = 'pending'
+        RETURNING *
+        """,
+        user_id, merchant, str(amount),
+    )
+    if row is None:  # conflict on a non-pending row → fetch existing
+        row = await pool.fetchrow(
+            "SELECT * FROM recurring_suggestions WHERE user_id = $1 AND merchant = $2",
+            user_id, merchant,
+        )
+    return dict(row)
+
+
+async def set_suggestion_status(
+    pool: asyncpg.Pool, suggestion_id: str, status: str
+) -> Optional[dict]:
+    row = await pool.fetchrow(
+        "UPDATE recurring_suggestions SET status = $1 WHERE id = $2 RETURNING *",
+        status, suggestion_id,
+    )
+    return dict(row) if row else None
+
+
+async def get_expenses_for_detection(
+    pool: asyncpg.Pool, user_id: str, since: datetime
+) -> list[dict]:
+    rows = await pool.fetch(
+        """
+        SELECT merchant, amount, spent_at
+        FROM expenses
+        WHERE user_id = $1 AND status = 'confirmed'
+          AND merchant IS NOT NULL AND merchant != ''
+          AND source NOT IN ('recurring_debit', 'recurring_credit')
+          AND spent_at >= $2
+        """,
+        user_id, since,
+    )
+    return [dict(r) for r in rows]
