@@ -34,6 +34,7 @@ function isoMonthStart() {
 
 export default function Dashboard() {
   const [authStatus, setAuthStatus] = useState<"loading" | "authed" | "unauthed">("loading");
+  const [authError, setAuthError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("overview");
   const [isEmpty, setIsEmpty] = useState(false);
   const [dataLoading, setDataLoading] = useState(false);
@@ -96,12 +97,24 @@ export default function Dashboard() {
   useEffect(() => {
     if (authStatus !== "unauthed") return;
     window.onTelegramAuth = async (user) => {
-      const res = await fetch("/api/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(user),
-      });
-      if (res.ok) { setAuthStatus("authed"); loadData(); }
+      console.log("[nudge] onTelegramAuth fired", user);
+      setAuthError(null);
+      try {
+        const res = await fetch("/api/auth", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(user),
+        });
+        if (res.ok) {
+          setAuthStatus("authed");
+          loadData();
+        } else {
+          const body = await res.json().catch(() => ({}));
+          setAuthError(`Auth failed (${res.status}): ${body.error ?? "unknown error"}`);
+        }
+      } catch (e) {
+        setAuthError(`Network error: ${e instanceof Error ? e.message : String(e)}`);
+      }
     };
     const el = document.getElementById("tg-login-mount");
     if (!el || el.querySelector("script")) return;
@@ -216,6 +229,11 @@ export default function Dashboard() {
             Sign in with Telegram to view your personal finance dashboard.
           </div>
           <div id="tg-login-mount" style={{ display: "flex", justifyContent: "center" }} />
+          {authError && (
+            <div style={{ marginTop: 14, padding: "10px 14px", background: "#fdecea", border: "1px solid #f5c6c2", borderRadius: 10, fontSize: 13, color: "#a5453a", textAlign: "left" }}>
+              {authError}
+            </div>
+          )}
         </div>
       </div>
     );
