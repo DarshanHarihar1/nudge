@@ -18,6 +18,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "/balance <amount> — Record bank balance\n"
         "/budget — Budget status this month\n"
         "/ask <question> — Query your spending\n"
+        "/login — Open the web dashboard\n"
         "/undo — Delete the last expense\n"
         "/help — Show this message",
         parse_mode="Markdown",

@@ -19,6 +19,9 @@ GROQ_API_KEY: str = _require("GROQ_API_KEY")
 OPENROUTER_API_KEY: str = os.environ.get("OPENROUTER_API_KEY", "")
 CRON_SECRET: str = _require("CRON_SECRET")
 APP_URL: str = os.environ.get("APP_URL", "http://localhost:8000")
+# Public URL of the Next.js dashboard — used by the /login command to build
+# magic links that bypass the Telegram login widget.
+DASHBOARD_URL: str = os.environ.get("DASHBOARD_URL", "https://nudge-web-steel.vercel.app")
 # Used to sign dashboard session cookies. Falls back to CRON_SECRET if unset
 # so existing deploys keep working, but a dedicated secret is recommended.
 SESSION_SECRET: str = os.environ.get("SESSION_SECRET") or CRON_SECRET
