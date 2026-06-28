@@ -2,10 +2,11 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from telegram import Update
 from telegram.ext import Application
 
-from config import TELEGRAM_WEBHOOK_SECRET
+from config import APP_URL, TELEGRAM_WEBHOOK_SECRET
 from db.client import close_pool, create_pool
 from bot.application import create_application
 from routers.auth import router as auth_router
@@ -35,6 +36,14 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Nudge API", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[APP_URL.rstrip("/"), "http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(auth_router)
 app.include_router(cron_router)
