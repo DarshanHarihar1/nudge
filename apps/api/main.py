@@ -8,6 +8,7 @@ from telegram.ext import Application
 from config import TELEGRAM_WEBHOOK_SECRET
 from db.client import close_pool, create_pool
 from bot.application import create_application
+from routers.auth import router as auth_router
 from routers.cron import router as cron_router
 from routers.dashboard import router as dashboard_router
 
@@ -35,6 +36,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Nudge API", lifespan=lifespan)
 
+app.include_router(auth_router)
 app.include_router(cron_router)
 app.include_router(dashboard_router)
 

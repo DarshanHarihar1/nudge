@@ -19,3 +19,8 @@ GROQ_API_KEY: str = _require("GROQ_API_KEY")
 OPENROUTER_API_KEY: str = os.environ.get("OPENROUTER_API_KEY", "")
 CRON_SECRET: str = _require("CRON_SECRET")
 APP_URL: str = os.environ.get("APP_URL", "http://localhost:8000")
+# Used to sign dashboard session cookies. Falls back to CRON_SECRET if unset
+# so existing deploys keep working, but a dedicated secret is recommended.
+SESSION_SECRET: str = os.environ.get("SESSION_SECRET") or CRON_SECRET
+# Optional: disable the LLM "insight" line in summaries to conserve rate limits.
+SUMMARY_INSIGHT_ENABLED: bool = os.environ.get("SUMMARY_INSIGHT_ENABLED", "false").lower() == "true"
