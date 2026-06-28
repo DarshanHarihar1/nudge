@@ -83,8 +83,11 @@ async function proxy(path: string, opts?: RequestInit) {
   return fetch(`/api/proxy/${path}`, opts);
 }
 
-export async function fetchExpenses(limit = 200): Promise<{ expenses: ApiExpense[]; total: number }> {
-  const res = await proxy(`expenses?page=1&limit=${limit}`);
+export async function fetchExpenses(limit = 100): Promise<{ expenses: ApiExpense[]; total: number }> {
+  // The API caps page size at 100 (returns 422 above that), so clamp here to
+  // keep any caller safe regardless of the value it passes.
+  const capped = Math.min(Math.max(1, limit), 100);
+  const res = await proxy(`expenses?page=1&limit=${capped}`);
   if (!res.ok) throw new Error("expenses");
   return res.json();
 }
