@@ -1,26 +1,53 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #f5f2ec;
+  --page-bg: #e7e1d7;
+  --card: #ffffff;
+  --border: #e9e3d9;
+  --border-light: #f0ebe2;
+  --accent: #c06a47;
+  --accent-dark: #b8503f;
+  --text: #26211c;
+  --muted: #b0a89d;
+  --muted2: #a39a8e;
+  --subtle: #8c8479;
+  --dim: #6f675c;
+  --green: #5f8f6f;
+  --red: #b8503f;
+  --nav-bg: #fbf9f5;
+  --seg-bg: #ebe4d9;
+  --tag-bg: #f5f0e8;
+  --font-hanken: var(--font-hanken, "Hanken Grotesk", system-ui, sans-serif);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+@keyframes nudgeUp {
+  from { transform: translateY(7px); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+@keyframes nudgeShimmer {
+  0%   { background-position: -200px 0; }
+  100% { background-position: 320px 0; }
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  font-family: var(--font-hanken);
+  background: var(--page-bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+*::-webkit-scrollbar { width: 0; height: 0; }
+
+.shimmer {
+  background: linear-gradient(90deg, #efeae2 0%, #f6f2ec 50%, #efeae2 100%);
+  background-size: 400px 100%;
+  animation: nudgeShimmer 1.3s infinite linear;
+  border-radius: 8px;
+}
+
+.screen-enter {
+  animation: nudgeUp 0.3s ease both;
 }
