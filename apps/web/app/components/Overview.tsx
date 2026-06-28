@@ -17,9 +17,10 @@ interface Props {
   reconState: ReconState;
   onCycleRecon: () => void;
   onGoTransactions: () => void;
+  balance?: number;
 }
 
-export default function Overview({ txns, isEmpty, reconState, onCycleRecon, onGoTransactions }: Props) {
+export default function Overview({ txns, isEmpty, reconState, onCycleRecon, onGoTransactions, balance }: Props) {
   const catOf = (key: string) => CATS.find(c => c.key === key) ?? { emoji:"📦", name:"Misc", cap:null };
 
   const juneList = txns.filter(t => t.date >= "2026-06-01" && t.date <= "2026-06-30");
@@ -70,8 +71,8 @@ export default function Overview({ txns, isEmpty, reconState, onCycleRecon, onGo
                 <span>{r.icon}</span><span>{r.label}</span>
               </button>
             </div>
-            <div style={{fontSize:42,fontWeight:700,letterSpacing:-1.4,marginTop:8,fontFeatureSettings:"'tnum'"}}>{fmtINR(247830)}</div>
-            <div style={{fontSize:12.5,color:"#a39a8e",marginTop:2}}>Last recorded Today, 9:42 AM</div>
+            <div style={{fontSize:42,fontWeight:700,letterSpacing:-1.4,marginTop:8,fontFeatureSettings:"'tnum'"}}>{fmtINR(balance ?? 247830)}</div>
+            <div style={{fontSize:12.5,color:"#a39a8e",marginTop:2}}>{balance != null ? "Last recorded from Telegram" : "Last recorded Today, 9:42 AM"}</div>
             <div style={{height:1,background:"#efe9df",margin:"14px 0 12px"}}/>
             <div style={{fontSize:12.5,color:"#8c8479"}}>{r.sub}</div>
           </div>
