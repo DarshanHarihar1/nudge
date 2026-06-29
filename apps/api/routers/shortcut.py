@@ -25,7 +25,7 @@ def derive_shortcut_token(telegram_id: int) -> str:
     """Deterministic per-user token: HMAC-SHA256(SESSION_SECRET, 'shortcut:{telegram_id}')."""
     key = SESSION_SECRET.encode()
     msg = f"shortcut:{telegram_id}".encode()
-    raw = hmac.new(key, msg, hashlib.sha256).digest()
+    raw = hmac.digest(key, msg, "sha256")
     return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
 
 
