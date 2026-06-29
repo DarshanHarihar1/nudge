@@ -30,7 +30,7 @@ apps/api/
 │   └── nl_query.py      # NL question → allowlisted {function, params}
 ├── bot/
 │   ├── application.py    # PTB handler registration
-│   ├── commands/        # /start /recent /undo /budget /ask /help
+│   ├── commands/        # /start /recent /undo /clear /restore /budget /ask /help
 │   └── handlers/        # text router, expense, nl_query, suggestion callbacks
 ├── db/
 │   ├── client.py        # asyncpg pool

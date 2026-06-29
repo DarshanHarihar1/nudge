@@ -190,6 +190,45 @@ async def delete_expense(pool: asyncpg.Pool, expense_id: str) -> None:
     await pool.execute("DELETE FROM expenses WHERE id = $1", expense_id)
 
 
+async def count_active_expenses(pool: asyncpg.Pool, user_id: str) -> int:
+    """Number of the user's expenses currently visible (not soft-cleared)."""
+    val = await pool.fetchval(
+        "SELECT COUNT(*) FROM expenses WHERE user_id = $1 AND status != 'cleared'",
+        user_id,
+    )
+    return val or 0
+
+
+async def count_cleared_expenses(pool: asyncpg.Pool, user_id: str) -> int:
+    """Number of the user's soft-cleared expenses (restorable via /restore)."""
+    val = await pool.fetchval(
+        "SELECT COUNT(*) FROM expenses WHERE user_id = $1 AND status = 'cleared'",
+        user_id,
+    )
+    return val or 0
+
+
+async def clear_expenses(pool: asyncpg.Pool, user_id: str) -> int:
+    """
+    Soft-delete every visible expense by moving it to status='cleared'.
+    Reversible via restore_expenses. Returns the number of rows cleared.
+    """
+    rows = await pool.fetch(
+        "UPDATE expenses SET status = 'cleared' WHERE user_id = $1 AND status != 'cleared' RETURNING id",
+        user_id,
+    )
+    return len(rows)
+
+
+async def restore_expenses(pool: asyncpg.Pool, user_id: str) -> int:
+    """Undo the last /clear: move soft-cleared expenses back to confirmed."""
+    rows = await pool.fetch(
+        "UPDATE expenses SET status = 'confirmed' WHERE user_id = $1 AND status = 'cleared' RETURNING id",
+        user_id,
+    )
+    return len(rows)
+
+
 async def list_recent_expenses(
     pool: asyncpg.Pool, user_id: str, limit: int = 10
 ) -> list[dict]:
@@ -198,7 +237,7 @@ async def list_recent_expenses(
         SELECT e.*, c.name AS category_name, c.emoji AS category_emoji
         FROM expenses e
         LEFT JOIN categories c ON e.category_id = c.id
-        WHERE e.user_id = $1
+        WHERE e.user_id = $1 AND e.status != 'cleared'
         ORDER BY e.created_at DESC
         LIMIT $2
         """,
@@ -214,7 +253,7 @@ async def get_last_expense(pool: asyncpg.Pool, user_id: str) -> Optional[dict]:
         SELECT e.*, c.name AS category_name, c.emoji AS category_emoji
         FROM expenses e
         LEFT JOIN categories c ON e.category_id = c.id
-        WHERE e.user_id = $1
+        WHERE e.user_id = $1 AND e.status != 'cleared'
         ORDER BY e.created_at DESC
         LIMIT 1
         """,
@@ -674,7 +713,7 @@ async def list_expenses_filtered(
     q: Optional[str] = None,
 ) -> tuple[list[dict], int]:
     """Returns (rows, total_count)."""
-    conds = ["e.user_id = $1"]
+    conds = ["e.user_id = $1", "e.status != 'cleared'"]
     args: list = [user_id]
     idx = 2
 
