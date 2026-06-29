@@ -11,7 +11,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Trigger monthly summary
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
+          : "${APP_URL:?Repository secret APP_URL is not set}"
+          : "${CRON_SECRET:?Repository secret CRON_SECRET is not set}"
           curl -sf -X POST \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            "${{ secrets.APP_URL }}/cron/monthly-summary"
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "${APP_URL}/cron/monthly-summary"
