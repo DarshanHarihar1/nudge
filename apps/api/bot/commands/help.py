@@ -19,6 +19,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "/ask <question> — Query your spending\n"
         "/login — Open the web dashboard\n"
         "/undo — Delete the last expense\n"
+        "/clear — Hide all expenses from the dashboard\n"
+        "/restore — Undo the last /clear\n"
         "/help — Show this message",
         parse_mode="Markdown",
     )
