@@ -1,33 +1,29 @@
 "use client";
-import { CATS, SNAPS, Txn } from "../lib/demoData";
+import { CATS, Txn } from "../lib/demoData";
 import { fmtINR, fmtSigned, dateShort } from "../lib/format";
-
-type ReconState = "balanced" | "gap" | "large";
-
-const RECON_MAP = {
-  balanced: { icon:"✅", label:"Balanced",          fg:"#4f7d5f", bg:"#e7efe7", sub:"Your recorded balance matches tracked activity." },
-  gap:      { icon:"⚠️", label:`Gap ${fmtINR(1240)}`, fg:"#9a7327", bg:"#f4ebd9", sub:`A ${fmtINR(1240)} gap between recorded and tracked. Add the missing entry.` },
-  large:    { icon:"🔴", label:`Gap ${fmtINR(18600)}`, fg:"#a5453a", bg:"#f4e2dd", sub:`Large ${fmtINR(18600)} gap — recorded balance and activity diverge.` },
-};
-const RECON_ORDER: ReconState[] = ["balanced","gap","large"];
 
 interface Props {
   txns: Txn[];
   isEmpty: boolean;
-  reconState: ReconState;
-  onCycleRecon: () => void;
   onGoTransactions: () => void;
-  balance?: number;
 }
 
-export default function Overview({ txns, isEmpty, reconState, onCycleRecon, onGoTransactions, balance }: Props) {
+export default function Overview({ txns, isEmpty, onGoTransactions }: Props) {
   const catOf = (key: string) => CATS.find(c => c.key === key) ?? { emoji:"📦", name:"Misc", cap:null };
 
-  const juneList = txns.filter(t => t.date >= "2026-06-01" && t.date <= "2026-06-30");
-  const monthSpend = juneList.filter(t => t.amount < 0).reduce((a, t) => a + Math.abs(t.amount), 0);
-  const income = 120000;
-  const savRate = Math.round((income - monthSpend) / income * 100);
-  const savColor = savRate >= 0 ? "#5f8f6f" : "#b8503f";
+  const now = new Date();
+  const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const monthName = now.toLocaleString("en-US", { month: "long" });
+
+  const monthSpends = txns.filter(t => t.date.startsWith(ym) && t.amount < 0);
+  const monthSpend = monthSpends.reduce((a, t) => a + Math.abs(t.amount), 0);
+  const txnCount = monthSpends.length;
+
+  // Top spending category this month
+  const catTotals = new Map<string, number>();
+  for (const t of monthSpends) catTotals.set(t.cat, (catTotals.get(t.cat) ?? 0) + Math.abs(t.amount));
+  const topEntry = [...catTotals.entries()].sort((a, b) => b[1] - a[1])[0];
+  const topCat = topEntry ? catOf(topEntry[0]) : null;
 
   const recent = txns.slice(0, 5).map((t, i) => {
     const c = catOf(t.cat);
@@ -41,17 +37,15 @@ export default function Overview({ txns, isEmpty, reconState, onCycleRecon, onGo
     };
   });
 
-  const r = RECON_MAP[reconState];
-
   return (
     <div className="screen-enter">
       {isEmpty ? (
         <>
           <div style={{background:"#fff",border:"1px solid #e9e3d9",borderRadius:22,padding:"28px 22px",textAlign:"center"}}>
             <div style={{fontSize:30,marginBottom:8}}>💤</div>
-            <div style={{fontSize:17,fontWeight:700}}>No balance recorded yet</div>
+            <div style={{fontSize:17,fontWeight:700}}>No expenses yet</div>
             <div style={{fontSize:13.5,color:"#8c8479",marginTop:6,lineHeight:1.5}}>
-              Send a balance to your Nudge bot on Telegram and it'll show up here.
+              Send an expense to your Nudge bot on Telegram and it'll show up here.
             </div>
           </div>
           <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,color:"#b0a89d",fontSize:13,fontWeight:600,padding:"40px 0"}}>
@@ -60,32 +54,24 @@ export default function Overview({ txns, isEmpty, reconState, onCycleRecon, onGo
         </>
       ) : (
         <>
-          {/* Balance hero */}
+          {/* Spend hero */}
           <div style={{background:"#fff",border:"1px solid #e9e3d9",borderRadius:22,padding:"20px 20px 18px"}}>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-              <div style={{fontSize:12,fontWeight:700,letterSpacing:"0.09em",textTransform:"uppercase",color:"#b0a89d"}}>Total balance</div>
-              <button
-                onClick={onCycleRecon}
-                style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",borderRadius:999,cursor:"pointer",background:r.bg,color:r.fg,fontSize:11.5,fontWeight:700,border:"none"}}
-              >
-                <span>{r.icon}</span><span>{r.label}</span>
-              </button>
-            </div>
-            <div style={{fontSize:42,fontWeight:700,letterSpacing:-1.4,marginTop:8,fontFeatureSettings:"'tnum'"}}>{fmtINR(balance ?? 247830)}</div>
-            <div style={{fontSize:12.5,color:"#a39a8e",marginTop:2}}>{balance != null ? "Last recorded from Telegram" : "Last recorded Today, 9:42 AM"}</div>
-            <div style={{height:1,background:"#efe9df",margin:"14px 0 12px"}}/>
-            <div style={{fontSize:12.5,color:"#8c8479"}}>{r.sub}</div>
+            <div style={{fontSize:12,fontWeight:700,letterSpacing:"0.09em",textTransform:"uppercase",color:"#b0a89d"}}>Spent this month</div>
+            <div style={{fontSize:42,fontWeight:700,letterSpacing:-1.4,marginTop:8,fontFeatureSettings:"'tnum'"}}>{fmtINR(monthSpend)}</div>
+            <div style={{fontSize:12.5,color:"#a39a8e",marginTop:2}}>{monthName} · {txnCount} expense{txnCount === 1 ? "" : "s"}</div>
           </div>
 
           {/* Two stats */}
           <div style={{display:"flex",gap:12,marginTop:12}}>
             <div style={{flex:1,background:"#fff",border:"1px solid #e9e3d9",borderRadius:18,padding:"15px 16px"}}>
-              <div style={{fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:"#b0a89d"}}>Spent · June</div>
-              <div style={{fontSize:23,fontWeight:700,letterSpacing:-0.6,marginTop:8,fontFeatureSettings:"'tnum'"}}>{fmtINR(monthSpend)}</div>
+              <div style={{fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:"#b0a89d"}}>Transactions</div>
+              <div style={{fontSize:23,fontWeight:700,letterSpacing:-0.6,marginTop:8,fontFeatureSettings:"'tnum'"}}>{txnCount}</div>
             </div>
             <div style={{flex:1,background:"#fff",border:"1px solid #e9e3d9",borderRadius:18,padding:"15px 16px"}}>
-              <div style={{fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:"#b0a89d"}}>Savings rate</div>
-              <div style={{fontSize:23,fontWeight:700,letterSpacing:-0.6,marginTop:8,color:savColor,fontFeatureSettings:"'tnum'"}}>{savRate}%</div>
+              <div style={{fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:"#b0a89d"}}>Top category</div>
+              <div style={{fontSize:18,fontWeight:700,letterSpacing:-0.4,marginTop:8,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+                {topCat ? `${topCat.emoji} ${topCat.name}` : "—"}
+              </div>
             </div>
           </div>
 

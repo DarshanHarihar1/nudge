@@ -7,17 +7,12 @@ from decimal import Decimal
 import asyncpg
 
 from db.queries import (
-    get_balance_trend,
     get_count_expenses,
-    get_latest_reconciliation,
-    get_latest_snapshot,
-    get_recurring_credit_total,
     get_sum_by_category,
     get_spend_over_time,
     get_top_merchants,
     get_total_spend,
 )
-from utils.finance import savings_rate
 
 
 def _f(v) -> float:
@@ -27,15 +22,11 @@ def _f(v) -> float:
 async def build_analytics(
     pool: asyncpg.Pool, user_id: str, start: datetime, end: datetime
 ) -> dict:
-    """Assemble the full analytics payload for the dashboard Spending/Overview pages."""
+    """Assemble the spend-focused analytics payload for the dashboard."""
     total = await get_total_spend(pool, user_id, start, end)
     by_cat = await get_sum_by_category(pool, user_id, start, end)
     over_time = await get_spend_over_time(pool, user_id, start, end)
     merchants = await get_top_merchants(pool, user_id, start, end, limit=10)
-    income = await get_recurring_credit_total(pool, user_id, start, end)
-    trend = await get_balance_trend(pool, user_id)
-
-    rate = savings_rate(income, total)
 
     return {
         "totalSpend": _f(total),
@@ -54,10 +45,6 @@ async def build_analytics(
         "topMerchants": [
             {"merchant": r["merchant"], "amount": _f(r["amount"]), "count": int(r["count"])}
             for r in merchants
-        ],
-        "savingsRate": rate,
-        "balanceTrend": [
-            {"date": r["date"], "balance": _f(r["balance"])} for r in trend
         ],
     }
 

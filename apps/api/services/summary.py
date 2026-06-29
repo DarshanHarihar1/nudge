@@ -9,15 +9,11 @@ from telegram import Bot
 
 from config import SUMMARY_INSIGHT_ENABLED
 from db.queries import (
-    get_latest_reconciliation,
-    get_recurring_credit_total,
     get_sum_by_category,
     get_total_spend,
     get_user,
 )
-from utils.finance import savings_rate
 from utils.ranges import resolve_range
-from utils.reconciliation import classify_discrepancy
 from utils.summary_templates import build_monthly_summary, build_weekly_summary
 
 
@@ -36,13 +32,6 @@ async def _over_budget(pool, user_id, start, end) -> list[dict]:
         if pct >= 80:
             out.append({"name": r["name"], "emoji": r["emoji"], "pct": pct})
     return out
-
-
-async def _reconciliation_status(pool, user_id) -> str | None:
-    rec = await get_latest_reconciliation(pool, user_id)
-    if not rec:
-        return None
-    return classify_discrepancy(Decimal(str(rec["discrepancy"])))
 
 
 async def _maybe_insight(spend: Decimal, top: list[dict]) -> str | None:
@@ -83,14 +72,12 @@ async def send_weekly_summary(pool: asyncpg.Pool, bot: Bot, telegram_id: int) ->
     total = await get_total_spend(pool, user_id, start, end)
     top = await get_sum_by_category(pool, user_id, start, end)
     over = await _over_budget(pool, user_id, start, end)
-    status = await _reconciliation_status(pool, user_id)
     insight = await _maybe_insight(total, top)
 
     text = build_weekly_summary(
         total_spend=total,
         top_categories=[{"name": c["name"], "emoji": c["emoji"], "amount": c["amount"]} for c in top],
         over_budget=over,
-        reconciliation_status=status,
         insight=insight,
         currency=currency,
     )
@@ -109,17 +96,12 @@ async def send_monthly_summary(pool: asyncpg.Pool, bot: Bot, telegram_id: int) -
     total = await get_total_spend(pool, user_id, start, end)
     top = await get_sum_by_category(pool, user_id, start, end)
     over = await _over_budget(pool, user_id, start, end)
-    income = await get_recurring_credit_total(pool, user_id, start, end)
-    rate = savings_rate(income, total)
-    status = await _reconciliation_status(pool, user_id)
     insight = await _maybe_insight(total, top)
 
     text = build_monthly_summary(
         total_spend=total,
         top_categories=[{"name": c["name"], "emoji": c["emoji"], "amount": c["amount"]} for c in top],
         over_budget=over,
-        savings_rate=rate,
-        reconciliation_status=status,
         insight=insight,
         currency=currency,
     )

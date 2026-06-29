@@ -15,36 +15,32 @@ def test_weekly_summary_contains_totals_and_categories():
             {"name": "Transport", "emoji": "🚗", "amount": Decimal("1200")},
         ],
         over_budget=[{"name": "Food", "emoji": "🍴", "pct": 84.0}],
-        reconciliation_status="gap",
     )
     assert "Weekly Summary" in text
     assert "₹4,200" in text
     assert "🍴 Food" in text
     assert "84%" in text
-    assert "⚠️ gap" in text
 
 
-def test_monthly_summary_savings_rate_na():
+def test_monthly_summary_contains_totals_and_categories():
+    text = build_monthly_summary(
+        total_spend=Decimal("30000"),
+        top_categories=[{"name": "Rent", "emoji": "🏠", "amount": Decimal("18000")}],
+        over_budget=[],
+    )
+    assert "Monthly Summary" in text
+    assert "₹30,000" in text
+    assert "🏠 Rent" in text
+
+
+def test_summaries_omit_balance_concepts():
     text = build_monthly_summary(
         total_spend=Decimal("30000"),
         top_categories=[],
         over_budget=[],
-        savings_rate=None,
-        reconciliation_status=None,
     )
-    assert "N/A" in text
-
-
-def test_monthly_summary_savings_rate_pct():
-    text = build_monthly_summary(
-        total_spend=Decimal("30000"),
-        top_categories=[],
-        over_budget=[],
-        savings_rate=0.32,
-        reconciliation_status="balanced",
-    )
-    assert "32%" in text
-    assert "✅ balanced" in text
+    assert "Savings rate" not in text
+    assert "Reconciliation" not in text
 
 
 def test_format_nl_total_spend():

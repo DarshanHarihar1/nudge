@@ -9,7 +9,6 @@ from telegram.ext import (
 
 from config import TELEGRAM_ALLOWED_ID, TELEGRAM_BOT_TOKEN
 from bot.commands.ask import ask_command
-from bot.commands.balance import balance_command
 from bot.commands.budget import budget_command
 from bot.commands.help import help_command
 from bot.commands.login import login_command
@@ -30,7 +29,6 @@ def create_application(pool: asyncpg.Pool) -> Application:
     app.add_handler(CommandHandler("start", start_command, filters=allowed))
     app.add_handler(CommandHandler("recent", recent_command, filters=allowed))
     app.add_handler(CommandHandler("undo", undo_command, filters=allowed))
-    app.add_handler(CommandHandler("balance", balance_command, filters=allowed))
     app.add_handler(CommandHandler("budget", budget_command, filters=allowed))
     app.add_handler(CommandHandler("ask", ask_command, filters=allowed))
     app.add_handler(CommandHandler("login", login_command, filters=allowed))

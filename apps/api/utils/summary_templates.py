@@ -19,7 +19,6 @@ def build_weekly_summary(
     total_spend: Decimal,
     top_categories: list[dict],  # {name, emoji, amount}
     over_budget: list[dict],  # {name, emoji, pct}
-    reconciliation_status: str | None,  # "balanced" | "gap" | "large_gap" | None
     insight: str | None = None,
     currency: str = "INR",
 ) -> str:
@@ -37,14 +36,6 @@ def build_weekly_summary(
         for c in over_budget:
             lines.append(f"  {c['emoji']} {c['name']} ({c['pct']:.0f}%)")
 
-    if reconciliation_status:
-        emoji = {"balanced": "✅", "gap": "⚠️", "large_gap": "🔴"}.get(
-            reconciliation_status, ""
-        )
-        label = reconciliation_status.replace("_", " ")
-        lines.append("")
-        lines.append(f"Reconciliation: {emoji} {label}")
-
     if insight:
         lines.append("")
         lines.append(f"💡 {insight}")
@@ -57,17 +48,10 @@ def build_monthly_summary(
     total_spend: Decimal,
     top_categories: list[dict],
     over_budget: list[dict],
-    savings_rate: float | None,
-    reconciliation_status: str | None,
     insight: str | None = None,
     currency: str = "INR",
 ) -> str:
     lines = ["🗓 *Monthly Summary*", "", f"Total spent: {_fmt(total_spend, currency)}"]
-
-    if savings_rate is not None:
-        lines.append(f"Savings rate: {savings_rate * 100:.0f}%")
-    else:
-        lines.append("Savings rate: N/A (no income configured)")
 
     if top_categories:
         lines.append("")
@@ -80,14 +64,6 @@ def build_monthly_summary(
         lines.append("⚠️ Over 80% of budget:")
         for c in over_budget:
             lines.append(f"  {c['emoji']} {c['name']} ({c['pct']:.0f}%)")
-
-    if reconciliation_status:
-        emoji = {"balanced": "✅", "gap": "⚠️", "large_gap": "🔴"}.get(
-            reconciliation_status, ""
-        )
-        label = reconciliation_status.replace("_", " ")
-        lines.append("")
-        lines.append(f"Reconciliation: {emoji} {label}")
 
     if insight:
         lines.append("")

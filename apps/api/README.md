@@ -30,7 +30,7 @@ apps/api/
 │   └── nl_query.py      # NL question → allowlisted {function, params}
 ├── bot/
 │   ├── application.py    # PTB handler registration
-│   ├── commands/        # /start /recent /undo /balance /budget /ask /help
+│   ├── commands/        # /start /recent /undo /budget /ask /help
 │   └── handlers/        # text router, expense, nl_query, suggestion callbacks
 ├── db/
 │   ├── client.py        # asyncpg pool
@@ -39,7 +39,7 @@ apps/api/
 │   ├── auth.py          # Telegram Login Widget → signed session cookie
 │   ├── cron.py          # /cron/* (Bearer CRON_SECRET)
 │   └── dashboard.py     # /dashboard/* (session cookie or Bearer)
-├── services/            # balance, recurring, summary, detection, analytics
+├── services/            # recurring, summary, detection, analytics
 ├── utils/               # pure logic: ranges, finance, detection, session, etc.
 └── tests/               # pytest (pure-logic unit tests)
 ```
@@ -54,7 +54,6 @@ apps/api/
 | POST | `/auth/logout` | — | Clear session |
 | GET | `/auth/session` | session | Current session info |
 | POST | `/cron/apply-recurring` | Bearer `CRON_SECRET` | Apply due recurring items |
-| POST | `/cron/balance-prompt` | Bearer `CRON_SECRET` | Ask for balance (idempotent) |
 | POST | `/cron/weekly-summary` | Bearer `CRON_SECRET` | Weekly digest |
 | POST | `/cron/monthly-summary` | Bearer `CRON_SECRET` | Monthly digest + detection |
 | GET | `/dashboard/analytics?from=&to=` | session | Charts data |

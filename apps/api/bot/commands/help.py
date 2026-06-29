@@ -15,7 +15,6 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "• /ask top merchants last week\n\n"
         "*Commands*\n"
         "/recent — Last 10 expenses\n"
-        "/balance <amount> — Record bank balance\n"
         "/budget — Budget status this month\n"
         "/ask <question> — Query your spending\n"
         "/login — Open the web dashboard\n"
