@@ -12,6 +12,7 @@ from bot.commands.ask import ask_command
 from bot.commands.budget import budget_command
 from bot.commands.clear import clear_command, restore_command
 from bot.commands.help import help_command
+from bot.commands.mytoken import mytoken_command
 from bot.commands.login import login_command
 from bot.commands.recent import recent_command
 from bot.commands.start import start_command
@@ -36,6 +37,7 @@ def create_application(pool: asyncpg.Pool) -> Application:
     app.add_handler(CommandHandler("login", login_command, filters=allowed))
     app.add_handler(CommandHandler("clear", clear_command, filters=allowed))
     app.add_handler(CommandHandler("restore", restore_command, filters=allowed))
+    app.add_handler(CommandHandler("mytoken", mytoken_command, filters=allowed))
     app.add_handler(CommandHandler("help", help_command, filters=allowed))
 
     # Callback queries — routed by data prefix. Guarded inside each handler.
