@@ -1,14 +1,12 @@
 """
 Routes incoming text messages:
-- If the user is in 'awaiting_balance' state and the message is a valid number → balance capture
+- If the message is a natural-language query (ends with "?") → query executor
 - Otherwise → expense classification
 """
 from telegram import Update
 from telegram.ext import ContextTypes
 
 from db.queries import get_user
-from services.balance import handle_balance_capture
-from utils.balance_parser import parse_balance
 from bot.handlers.expense import expense_handler
 from bot.handlers.nl_query import is_query, process_nl_query
 
@@ -23,23 +21,10 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     if not user:
         return
 
-    # 1. Balance reply (when prompted) — a bare number is captured as balance
-    if user.get("awaiting_balance"):
-        amount = parse_balance(text)
-        if amount is not None:
-            await handle_balance_capture(
-                pool=pool,
-                bot=context.bot,
-                user=user,
-                chat_id=update.effective_chat.id,
-                amount=amount,
-            )
-            return
-
-    # 2. Natural-language query — message ending with "?"
+    # 1. Natural-language query — message ending with "?"
     if is_query(text):
         await process_nl_query(update, context, text)
         return
 
-    # 3. Otherwise treat as an expense to log
+    # 2. Otherwise treat as an expense to log
     await expense_handler(update, context)

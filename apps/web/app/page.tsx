@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { CATS, CatKey, RecurringItem, Txn } from "./lib/demoData";
+import { RecurringItem, Txn } from "./lib/demoData";
 import {
   ApiCategory, Analytics,
   toTxn, toRecurring, catKey,
@@ -12,11 +12,8 @@ import Spending from "./components/Spending";
 import NetWorth from "./components/NetWorth";
 import Recurring from "./components/Recurring";
 import Transactions from "./components/Transactions";
-import { fmtINR } from "./lib/format";
 
 type Tab = "overview" | "spending" | "networth" | "recurring" | "transactions";
-type ReconState = "balanced" | "gap" | "large";
-const RECON_ORDER: ReconState[] = ["balanced", "gap", "large"];
 
 declare global {
   interface Window {
@@ -38,7 +35,6 @@ export default function Dashboard() {
   const [tab, setTab] = useState<Tab>("overview");
   const [isEmpty, setIsEmpty] = useState(false);
   const [dataLoading, setDataLoading] = useState(false);
-  const [reconState, setReconState] = useState<ReconState>("balanced");
 
   const [txns, setTxns] = useState<Txn[]>([]);
   const [recurring, setRecurring] = useState<RecurringItem[]>([]);
@@ -198,23 +194,9 @@ export default function Dashboard() {
     }
   }, [recurring, categories]);
 
-  const juneList = txns.filter((t) => {
-    const today = isoToday();
-    const monthStart = isoMonthStart();
-    return t.date >= monthStart && t.date <= today;
-  });
-  const monthSpend = analytics?.totalSpend
-    ?? juneList.filter((t) => t.amount < 0).reduce((a, t) => a + Math.abs(t.amount), 0);
-  const income = recurring.filter((r) => r.type === "credit" && r.active).reduce((a, r) => a + r.amount, 0) || 120000;
-  const savRate = analytics?.savingsRate != null
-    ? Math.round(analytics.savingsRate * 100)
-    : Math.round(((income - monthSpend) / income) * 100);
-  const savColor = savRate >= 0 ? "#5f8f6f" : "#b8503f";
   const accent = "#c06a47";
   const muted = "#b3a99d";
   const tint = (k: Tab) => (tab === k ? accent : muted);
-
-  const latestBalance = analytics?.balanceTrend?.at(-1)?.balance ?? null;
 
   // ── Login screen ──────────────────────────────────────────────────────────
   if (authStatus === "unauthed") {
@@ -300,14 +282,12 @@ export default function Dashboard() {
         {/* Scroll area */}
         <div style={{ flex: 1, overflowY: "auto", padding: "6px 18px 22px" }}>
           {tab === "overview" && (
-            <Overview txns={txns} isEmpty={isEmpty} reconState={reconState}
-              onCycleRecon={() => setReconState((s) => RECON_ORDER[(RECON_ORDER.indexOf(s) + 1) % 3])}
+            <Overview txns={txns} isEmpty={isEmpty}
               onGoTransactions={() => setTab("transactions")}
-              balance={latestBalance ?? undefined}
             />
           )}
           {tab === "spending" && <Spending txns={txns} isEmpty={isEmpty} analytics={analytics} />}
-          {tab === "networth" && <NetWorth isEmpty={isEmpty} savRate={savRate} savColor={savColor} balanceTrend={analytics?.balanceTrend} />}
+          {tab === "networth" && <NetWorth isEmpty={isEmpty} spendOverTime={analytics?.spendOverTime} />}
           {tab === "recurring" && <Recurring items={recurring} isEmpty={isEmpty} onUpdate={handleUpdateRecurring} />}
           {tab === "transactions" && <Transactions txns={txns} isEmpty={isEmpty} onUpdateTxns={handleUpdateTxns} />}
         </div>
@@ -316,7 +296,7 @@ export default function Dashboard() {
         <div style={{ flexShrink: 0, display: "flex", justifyContent: "space-around", alignItems: "flex-start", padding: "9px 6px 20px", borderTop: "1px solid #e7e1d6", background: "#fbf9f5" }}>
           <NavItem label="Overview" color={tint("overview")} onClick={() => setTab("overview")} icon={<svg width="22" height="22" viewBox="0 0 22 22" fill="currentColor"><circle cx="6.5" cy="6.5" r="2.6" /><circle cx="15.5" cy="6.5" r="2.6" /><circle cx="6.5" cy="15.5" r="2.6" /><circle cx="15.5" cy="15.5" r="2.6" /></svg>} />
           <NavItem label="Spending" color={tint("spending")} onClick={() => setTab("spending")} icon={<svg width="22" height="22" viewBox="0 0 22 22" fill="currentColor"><rect x="3" y="11" width="4" height="8" rx="1" /><rect x="9" y="6" width="4" height="13" rx="1" /><rect x="15" y="9" width="4" height="10" rx="1" /></svg>} />
-          <NavItem label="Net worth" color={tint("networth")} onClick={() => setTab("networth")} icon={<svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"><path d="M3 15l5-5 3 3 6-7" /><path d="M17 6h-4M17 6v4" /></svg>} />
+          <NavItem label="Trends" color={tint("networth")} onClick={() => setTab("networth")} icon={<svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"><path d="M3 15l5-5 3 3 6-7" /><path d="M17 6h-4M17 6v4" /></svg>} />
           <NavItem label="Recurring" color={tint("recurring")} onClick={() => setTab("recurring")} icon={<svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"><path d="M5 8a7 7 0 0 1 12-2.5M17 5.5V2.5M17 5.5h-3" /><path d="M17 14a7 7 0 0 1-12 2.5M5 16.5v3M5 16.5h3" /></svg>} />
           <NavItem label="Activity" color={tint("transactions")} onClick={() => setTab("transactions")} icon={<svg width="22" height="22" viewBox="0 0 22 22" fill="currentColor"><circle cx="5" cy="6" r="1.6" /><rect x="9" y="5" width="10" height="2.2" rx="1.1" /><circle cx="5" cy="11" r="1.6" /><rect x="9" y="10" width="10" height="2.2" rx="1.1" /><circle cx="5" cy="16" r="1.6" /><rect x="9" y="15" width="10" height="2.2" rx="1.1" /></svg>} />
         </div>
