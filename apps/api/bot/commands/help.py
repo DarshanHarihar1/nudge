@@ -21,6 +21,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "/undo — Delete the last expense\n"
         "/clear — Hide all expenses from the dashboard\n"
         "/restore — Undo the last /clear\n"
+        "/mytoken — Get your iPhone Shortcut auth token\n"
         "/help — Show this message",
         parse_mode="Markdown",
     )
