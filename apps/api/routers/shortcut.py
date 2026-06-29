@@ -1,43 +1,20 @@
 """
 Shortcut endpoint — lets iPhone Shortcuts log expenses directly.
 
-Auth: stateless HMAC token derived from SESSION_SECRET.
+Auth: Bearer <CRON_SECRET> (same secret used by cron jobs).
 Get your token by sending /mytoken to the bot.
 """
 from __future__ import annotations
 
-import hashlib
-import hmac
-import base64
-from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from config import SESSION_SECRET, TELEGRAM_ALLOWED_ID
 from db.queries import get_user, list_categories
+from routers.auth import require_session
 
 router = APIRouter(prefix="/shortcut", tags=["shortcut"])
-
-
-def derive_shortcut_token(telegram_id: int) -> str:
-    """Deterministic per-user token: HMAC-SHA256(SESSION_SECRET, 'shortcut:{telegram_id}')."""
-    key = SESSION_SECRET.encode()
-    msg = f"shortcut:{telegram_id}".encode()
-    raw = hmac.digest(key, msg, "sha256")
-    return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
-
-
-def _require_token(request: Request) -> int:
-    auth = request.headers.get("authorization", "")
-    if not auth.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing Bearer token")
-    token = auth[7:]
-    expected = derive_shortcut_token(TELEGRAM_ALLOWED_ID)
-    if not hmac.compare_digest(token, expected):
-        raise HTTPException(status_code=401, detail="Invalid token")
-    return TELEGRAM_ALLOWED_ID
 
 
 class ShortcutExpense(BaseModel):
@@ -50,7 +27,7 @@ class ShortcutExpense(BaseModel):
 async def create_shortcut_expense(
     request: Request,
     body: ShortcutExpense,
-    telegram_id: int = Depends(_require_token),
+    telegram_id: int = Depends(require_session),
 ):
     pool = request.app.state.pool
     user = await get_user(pool, telegram_id)
