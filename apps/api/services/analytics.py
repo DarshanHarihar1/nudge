@@ -26,7 +26,6 @@ async def build_analytics(
     total = await get_total_spend(pool, user_id, start, end)
     by_cat = await get_sum_by_category(pool, user_id, start, end)
     over_time = await get_spend_over_time(pool, user_id, start, end)
-    merchants = await get_top_merchants(pool, user_id, start, end, limit=10)
 
     return {
         "totalSpend": _f(total),
@@ -41,10 +40,6 @@ async def build_analytics(
         ],
         "spendOverTime": [
             {"date": r["date"], "amount": _f(r["amount"])} for r in over_time
-        ],
-        "topMerchants": [
-            {"merchant": r["merchant"], "amount": _f(r["amount"]), "count": int(r["count"])}
-            for r in merchants
         ],
     }
 

@@ -34,7 +34,6 @@ export interface Analytics {
   totalSpend: number;
   byCategory: { name: string; emoji: string; amount: number; budget: number | null }[];
   spendOverTime: { date: string; amount: number }[];
-  topMerchants: { merchant: string; amount: number; count: number }[];
 }
 
 const VALID_CATS: CatKey[] = [
