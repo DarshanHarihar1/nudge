@@ -35,10 +35,11 @@ async def create_shortcut_expense(
         raise HTTPException(status_code=404, detail="User not registered")
 
     cats = await list_categories(pool, str(user["id"]))
-    cat = next((c for c in cats if c["name"].lower() == body.category.lower()), None)
+    category = body.category.strip()
+    cat = next((c for c in cats if c["name"].lower() == category.lower()), None)
     if not cat:
         available = ", ".join(c["name"] for c in cats)
-        raise HTTPException(status_code=422, detail=f"Unknown category. Available: {available}")
+        raise HTTPException(status_code=422, detail=f"Unknown category '{category}' (len={len(category)}). Available: {available}")
 
     row = await pool.fetchrow(
         """
@@ -53,6 +54,6 @@ async def create_shortcut_expense(
         str(body.amount),
         str(cat["id"]),
         body.note,
-        f"shortcut: {body.amount} {body.category}",
+        f"shortcut: {body.amount} {category}",
     )
     return {"ok": True, "id": str(row["id"])}
