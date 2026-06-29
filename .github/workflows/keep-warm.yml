@@ -11,5 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ping health endpoint
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
         run: |
-          curl -sf "${{ secrets.APP_URL }}/health" || echo "Health check failed (non-fatal)"
+          : "${APP_URL:?Repository secret APP_URL is not set}"
+          curl -sf "${APP_URL}/health" || echo "Health check failed (non-fatal)"
