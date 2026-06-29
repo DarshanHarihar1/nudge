@@ -61,12 +61,6 @@ export default function Spending({ txns, isEmpty, analytics }: Props) {
   const maxV = Math.max(...series.map(s => s.v), 1);
   const bars = series.map(s => ({ h: Math.max(2, Math.round(s.v / maxV * 100)) + "%", color: s.v > 0 ? "#dcae9a" : "#efe9df" }));
 
-  // Top merchants
-  const mMap: Record<string, { sum: number; count: number }> = {};
-  spList.forEach(t => { if (!mMap[t.merchant]) mMap[t.merchant] = { sum: 0, count: 0 }; mMap[t.merchant].sum += Math.abs(t.amount); mMap[t.merchant].count++; });
-  const merchants = Object.entries(mMap).sort((a, b) => b[1].sum - a[1].sum).slice(0, 5)
-    .map(([name, v], i) => ({ rank: i + 1, name, amountText: fmtINR(v.sum), count: v.count + (v.count === 1 ? " transaction" : " transactions"), sep: i === 0 ? "transparent" : "#f0ebe2" }));
-
   return (
     <div className="screen-enter">
       <div style={{fontSize:26,fontWeight:700,letterSpacing:-0.8,margin:"2px 2px 12px"}}>Spending</div>
@@ -146,20 +140,6 @@ export default function Spending({ txns, isEmpty, analytics }: Props) {
             ))}
           </div>
 
-          {/* Top merchants */}
-          <div style={{fontSize:12,fontWeight:700,letterSpacing:"0.09em",textTransform:"uppercase",color:"#b0a89d",margin:"22px 2px 10px"}}>Top merchants</div>
-          <div style={{background:"#fff",border:"1px solid #e9e3d9",borderRadius:18,overflow:"hidden"}}>
-            {merchants.map((m, i) => (
-              <div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"13px 16px",borderTop:`1px solid ${m.sep}`}}>
-                <div style={{width:24,fontSize:13,fontWeight:700,color:"#c9c0b3",fontFeatureSettings:"'tnum'"}}>{m.rank}</div>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:14.5,fontWeight:600}}>{m.name}</div>
-                  <div style={{fontSize:12,color:"#a39a8e"}}>{m.count}</div>
-                </div>
-                <div style={{fontSize:14.5,fontWeight:700,fontFeatureSettings:"'tnum'"}}>{m.amountText}</div>
-              </div>
-            ))}
-          </div>
         </>
       )}
     </div>
