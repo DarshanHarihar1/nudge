@@ -262,15 +262,6 @@ export default function Dashboard() {
             <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: -0.4 }}>Nudge</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ display: "flex", background: "#ebe4d9", borderRadius: 9, padding: 3, gap: 2 }}>
-              {(([["Live", false], ["Empty", true]] as const)).map(([label, val]) => {
-                const active = isEmpty === val;
-                return (
-                  <button key={label} onClick={() => setIsEmpty(val)}
-                    style={{ padding: "5px 11px", borderRadius: 7, fontSize: 11, fontWeight: 700, letterSpacing: "0.02em", cursor: "pointer", border: "none", background: active ? "#fff" : "transparent", color: active ? "#26211c" : "#9b9388", boxShadow: active ? "0 1px 2px rgba(0,0,0,0.08)" : "none" }}>{label}</button>
-                );
-              })}
-            </div>
             <button
               onClick={async () => { await fetch("/api/auth", { method: "DELETE" }); setAuthStatus("unauthed"); }}
               style={{ fontSize: 11, fontWeight: 700, color: "#b0a89d", background: "none", border: "none", cursor: "pointer", padding: "5px 8px" }}
