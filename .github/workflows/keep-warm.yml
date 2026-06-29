@@ -15,4 +15,5 @@ jobs:
           APP_URL: ${{ secrets.APP_URL }}
         run: |
           : "${APP_URL:?Repository secret APP_URL is not set}"
+          APP_URL="${APP_URL%/}"  # strip trailing slash to avoid a //path 404
           curl -sf "${APP_URL}/health" || echo "Health check failed (non-fatal)"
