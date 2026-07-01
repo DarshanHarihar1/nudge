@@ -8,7 +8,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from config import CRON_SECRET, TELEGRAM_ALLOWED_ID
 from services.detection import run_detection
 from services.recurring import apply_recurring_items
-from services.summary import send_monthly_summary, send_weekly_summary
+from services.summary import send_daily_summary, send_expense_reminder, send_monthly_summary, send_weekly_summary
 
 router = APIRouter(prefix="/cron", tags=["cron"])
 _bearer = HTTPBearer()
@@ -27,6 +27,28 @@ async def cron_apply_recurring(request: Request):
     pool = request.app.state.pool
     bot = request.app.state.telegram_app.bot
     result = await apply_recurring_items(pool, bot, TELEGRAM_ALLOWED_ID)
+    return {"ok": True, **result}
+
+
+# ── daily-summary ─────────────────────────────────────────────────────────────
+
+@router.post("/daily-summary", dependencies=[Depends(_verify_secret)])
+async def cron_daily_summary(request: Request):
+    """Daily 21:00 IST — today's spend summary."""
+    pool = request.app.state.pool
+    bot = request.app.state.telegram_app.bot
+    result = await send_daily_summary(pool, bot, TELEGRAM_ALLOWED_ID)
+    return {"ok": True, **result}
+
+
+# ── expense-reminder ───────────────────────────────────────────────────────────
+
+@router.post("/expense-reminder", dependencies=[Depends(_verify_secret)])
+async def cron_expense_reminder(request: Request):
+    """09:00 / 13:00 / 19:00 IST — nudge to log expenses."""
+    pool = request.app.state.pool
+    bot = request.app.state.telegram_app.bot
+    result = await send_expense_reminder(pool, bot, TELEGRAM_ALLOWED_ID)
     return {"ok": True, **result}
 
 

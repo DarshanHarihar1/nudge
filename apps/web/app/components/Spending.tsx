@@ -8,18 +8,39 @@ type RangeKey = "this" | "last" | "last3" | "custom";
 
 interface Props { txns: Txn[]; isEmpty: boolean; analytics?: Analytics | null; }
 
+function monthBounds(year: number, month: number): [string, string] {
+  const lastDay = new Date(year, month, 0).getDate();
+  const m = String(month).padStart(2, "0");
+  return [`${year}-${m}-01`, `${year}-${m}-${String(lastDay).padStart(2, "0")}`];
+}
+
+function getRangeBounds(): Record<RangeKey, [string, string]> {
+  const now = new Date();
+  const y = now.getFullYear(), mo = now.getMonth() + 1;
+  const prev = mo === 1 ? [y - 1, 12] : [y, mo - 1];
+  const threeBack = mo <= 3 ? [y - 1, mo + 9] : [y, mo - 3];
+  const [thisS, thisE] = monthBounds(y, mo);
+  const [lastS, lastE] = monthBounds(prev[0], prev[1]);
+  const [l3S]          = monthBounds(threeBack[0], threeBack[1]);
+  return {
+    this:   [thisS, thisE],
+    last:   [lastS, lastE],
+    last3:  [l3S,   thisE],
+    custom: [thisS, thisE],
+  };
+}
+
+const BOUNDS = getRangeBounds();
+
 function inRange(date: string, key: RangeKey, from: string, to: string): boolean {
-  if (key === "this")   return date >= "2026-06-01" && date <= "2026-06-30";
-  if (key === "last")   return date >= "2026-05-01" && date <= "2026-05-31";
-  if (key === "last3")  return date >= "2026-04-01" && date <= "2026-06-30";
-  if (key === "custom") return date >= from && date <= to;
-  return true;
+  const [s, e] = key === "custom" ? [from, to] : BOUNDS[key];
+  return date >= s && date <= e;
 }
 
 export default function Spending({ txns, isEmpty, analytics }: Props) {
   const [range, setRange] = useState<RangeKey>("this");
-  const [from, setFrom] = useState("2026-06-01");
-  const [to, setTo] = useState("2026-06-28");
+  const [from, setFrom] = useState(BOUNDS.this[0]);
+  const [to, setTo] = useState(BOUNDS.this[1]);
 
   const spList = isEmpty ? [] : txns.filter(t => t.amount < 0 && inRange(t.date, range, from, to));
   const spTotal = spList.reduce((a, t) => a + Math.abs(t.amount), 0);
@@ -48,8 +69,7 @@ export default function Spending({ txns, isEmpty, analytics }: Props) {
     });
 
   // Daily bars
-  const spanStart = range === "this" ? "2026-06-01" : range === "last" ? "2026-05-01" : range === "last3" ? "2026-04-01" : from;
-  const spanEnd   = range === "this" ? "2026-06-28" : range === "last" ? "2026-05-31" : range === "last3" ? "2026-06-28" : to;
+  const [spanStart, spanEnd] = range === "custom" ? [from, to] : BOUNDS[range];
   const dayMap: Record<string, number> = {};
   spList.forEach(t => { dayMap[t.date] = (dayMap[t.date] || 0) + Math.abs(t.amount); });
   const series: { date: string; v: number }[] = [];

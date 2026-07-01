@@ -72,6 +72,39 @@ def build_monthly_summary(
     return "\n".join(lines)
 
 
+def build_daily_summary(
+    *,
+    date_label: str,
+    total_spend: Decimal,
+    top_categories: list[dict],
+    expense_count: int,
+    currency: str = "INR",
+) -> str:
+    if expense_count == 0:
+        return f"📊 *Daily Summary — {date_label}*\n\nNothing logged today. Don't forget to track your expenses!"
+
+    lines = [f"📊 *Daily Summary — {date_label}*", "", f"Spent today: {_fmt(total_spend, currency)}"]
+    if top_categories:
+        lines.append("")
+        for c in top_categories:
+            lines.append(f"  {c['emoji']} {c['name']}: {_fmt(c['amount'], currency)}")
+    lines.append("")
+    lines.append(f"{expense_count} expense{'s' if expense_count != 1 else ''} logged")
+    return "\n".join(lines)
+
+
+REMINDER_MESSAGES = [
+    "Good morning! 🌅 Any expenses since last night? Log them now before they slip your mind.",
+    "Afternoon check-in ☀️ Had lunch or made any purchases? Quick — type them in the chat.",
+    "Evening nudge 🌆 End-of-day sweep: log anything you haven't tracked yet. Takes 5 seconds.",
+]
+
+
+def build_expense_reminder(slot: int) -> str:
+    """slot: 0 = morning, 1 = afternoon, 2 = evening."""
+    return REMINDER_MESSAGES[slot % 3]
+
+
 def format_nl_answer(function: str, params: dict, rows: list[dict], currency: str = "INR") -> str:
     """Render the result of an NL query into a human-readable Telegram message."""
     rng = params.get("range", "month").replace("_", " ")
