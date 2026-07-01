@@ -104,9 +104,9 @@ async def send_expense_reminder(pool: asyncpg.Pool, bot: Bot, telegram_id: int) 
     if not user:
         return {"sent": False, "reason": "user not registered"}
 
-    # Derive slot from current IST hour: 9am→0, 1pm→1, 7pm→2
+    # Derive slot from current IST hour: 10am→0, 2pm→1, 7pm→2
     hour = now_ist().hour
-    slot = 0 if hour < 12 else (1 if hour < 16 else 2)
+    slot = 0 if hour < 13 else (1 if hour < 17 else 2)
     text = build_expense_reminder(slot)
     await bot.send_message(chat_id=telegram_id, text=text)
     return {"sent": True, "slot": slot}

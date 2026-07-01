@@ -2,10 +2,10 @@ name: Expense Logging Reminders
 
 on:
   schedule:
-    # 09:00 IST = 03:30 UTC
-    - cron: "30 3 * * *"
-    # 13:00 IST = 07:30 UTC
-    - cron: "30 7 * * *"
+    # 10:00 IST = 04:30 UTC
+    - cron: "30 4 * * *"
+    # 14:00 IST = 08:30 UTC
+    - cron: "30 8 * * *"
     # 19:00 IST = 13:30 UTC
     - cron: "30 13 * * *"
   workflow_dispatch:
