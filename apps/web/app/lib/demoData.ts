@@ -5,12 +5,13 @@ export const CATS = [
   { key: "groceries",     name: "Groceries",     emoji: "🛒", cap: 12000 },
   { key: "transport",     name: "Transport",     emoji: "🚗", cap: 4000 },
   { key: "rent",          name: "Rent",          emoji: "🏠", cap: null },
-  { key: "utilities",     name: "Utilities",     emoji: "💡", cap: null },
   { key: "entertainment", name: "Entertainment", emoji: "🎬", cap: 3000 },
   { key: "shopping",      name: "Shopping",      emoji: "🛍️", cap: null },
   { key: "health",        name: "Health",        emoji: "💊", cap: null },
   { key: "subscriptions", name: "Subscriptions", emoji: "📱", cap: 2000 },
-  { key: "education",     name: "Education",     emoji: "📚", cap: null },
+  { key: "investment",    name: "Investment",    emoji: "📈", cap: null },
+  { key: "creditcard",    name: "Credit Card",   emoji: "💳", cap: null },
+  { key: "family",        name: "Family",        emoji: "👨‍👩‍👧", cap: null },
   { key: "misc",          name: "Misc",          emoji: "📦", cap: null },
 ] as const;
 
@@ -49,8 +50,8 @@ export const SEED_RECURRING: RecurringItem[] = [
   { id: 3, name: "Cult.fit",          amount: 2000,   cat: "health",        day: 3,  type: "debit",  active: true },
   { id: 4, name: "Netflix",           amount: 649,    cat: "subscriptions", day: 5,  type: "debit",  active: true },
   { id: 5, name: "Spotify",           amount: 119,    cat: "subscriptions", day: 5,  type: "debit",  active: false },
-  { id: 6, name: "Electricity (BESCOM)", amount: 1850, cat: "utilities",   day: 8,  type: "debit",  active: true },
-  { id: 7, name: "Internet (ACT)",    amount: 1199,   cat: "utilities",     day: 10, type: "debit",  active: true },
+  { id: 6, name: "Electricity (BESCOM)", amount: 1850, cat: "misc",   day: 8,  type: "debit",  active: true },
+  { id: 7, name: "Internet (ACT)",    amount: 1199,   cat: "misc",     day: 10, type: "debit",  active: true },
 ];
 
 function lcg(seed: number) {
@@ -96,8 +97,8 @@ export function makeTxns(): Txn[] {
     out.push({ id:id++, date:isoDate(y,m,1),  amount:-35000,  cat:"rent",          merchant:"Landlord",           note:"Monthly rent",    source:"recurring" });
     out.push({ id:id++, date:isoDate(y,m,3),  amount:-2000,   cat:"health",        merchant:"Cult.fit",           note:"Membership",      source:"recurring" });
     out.push({ id:id++, date:isoDate(y,m,5),  amount:-649,    cat:"subscriptions", merchant:"Netflix",            note:"",                source:"recurring" });
-    out.push({ id:id++, date:isoDate(y,m,8),  amount:-amt(1600,2100), cat:"utilities", merchant:"BESCOM",         note:"Electricity",     source:"recurring" });
-    out.push({ id:id++, date:isoDate(y,m,10), amount:-1199,   cat:"utilities",     merchant:"ACT Fibernet",       note:"Internet",        source:"recurring" });
+    out.push({ id:id++, date:isoDate(y,m,8),  amount:-amt(1600,2100), cat:"misc", merchant:"BESCOM",         note:"Electricity",     source:"recurring" });
+    out.push({ id:id++, date:isoDate(y,m,10), amount:-1199,   cat:"misc",     merchant:"ACT Fibernet",       note:"Internet",        source:"recurring" });
     for (let d = 1; d <= maxd; d++) {
       const c0 = r();
       const count = c0 < 0.33 ? 0 : c0 < 0.72 ? 1 : 2;

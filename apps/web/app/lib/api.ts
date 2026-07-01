@@ -36,15 +36,17 @@ export interface Analytics {
   spendOverTime: { date: string; amount: number }[];
 }
 
-const VALID_CATS: CatKey[] = [
-  "food", "groceries", "transport", "rent", "utilities",
-  "entertainment", "shopping", "health", "subscriptions", "education", "misc",
-];
+const CAT_NAME_MAP: Record<string, CatKey> = {
+  "food": "food", "groceries": "groceries", "transport": "transport",
+  "rent": "rent", "entertainment": "entertainment", "shopping": "shopping",
+  "health": "health", "subscriptions": "subscriptions", "investment": "investment",
+  "credit card": "creditcard", "creditcard": "creditcard",
+  "family": "family", "misc": "misc",
+};
 
 export function catKey(name: string | null): CatKey {
   if (!name) return "misc";
-  const k = name.toLowerCase() as CatKey;
-  return VALID_CATS.includes(k) ? k : "misc";
+  return CAT_NAME_MAP[name.toLowerCase()] ?? "misc";
 }
 
 export function toTxn(e: ApiExpense, idx: number): Txn {
