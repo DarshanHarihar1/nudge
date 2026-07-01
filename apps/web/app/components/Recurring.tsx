@@ -111,16 +111,27 @@ export default function Recurring({ items, isEmpty, onUpdate }: Props) {
                 <input value={form.name} onChange={e => patchForm({ name: e.target.value })} placeholder="e.g. Netflix"
                   style={{width:"100%",boxSizing:"border-box",border:"1px solid #e2dbd0",background:"#fff",borderRadius:12,padding:"11px 13px",fontSize:14,fontFamily:"inherit"}}/>
               </div>
-              <div style={{display:"flex",gap:11}}>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:11,fontWeight:700,color:"#b0a89d",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:5}}>Amount ₹</div>
-                  <input type="number" value={form.amount || ""} onChange={e => patchForm({ amount: Number(e.target.value) })} placeholder="0"
-                    style={{width:"100%",boxSizing:"border-box",border:"1px solid #e2dbd0",background:"#fff",borderRadius:12,padding:"11px 13px",fontSize:14,fontFamily:"inherit",fontFeatureSettings:"'tnum'"}}/>
+              <div>
+                <div style={{fontSize:11,fontWeight:700,color:"#b0a89d",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:5}}>Amount ₹</div>
+                <input type="number" value={form.amount || ""} onChange={e => patchForm({ amount: Number(e.target.value) })} placeholder="0"
+                  style={{width:"100%",boxSizing:"border-box",border:"1px solid #e2dbd0",background:"#fff",borderRadius:12,padding:"11px 13px",fontSize:14,fontFamily:"inherit",fontFeatureSettings:"'tnum'"}}/>
+              </div>
+              <div>
+                <div style={{fontSize:11,fontWeight:700,color:"#b0a89d",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:5}}>
+                  Day of month — logs on the <strong style={{color:"#c06a47"}}>{ordinal(Math.max(1, Math.min(28, Number(form.day) || 1)))}</strong> every month
                 </div>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:11,fontWeight:700,color:"#b0a89d",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:5}}>Day of month</div>
-                  <input type="number" min={1} max={28} value={form.day} onChange={e => patchForm({ day: Number(e.target.value) })} placeholder="1"
-                    style={{width:"100%",boxSizing:"border-box",border:"1px solid #e2dbd0",background:"#fff",borderRadius:12,padding:"11px 13px",fontSize:14,fontFamily:"inherit",fontFeatureSettings:"'tnum'"}}/>
+                <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                  {Array.from({length:28},(_,i)=>i+1).map(d => (
+                    <button key={d} type="button" onClick={() => patchForm({ day: d })}
+                      style={{
+                        width:36,height:36,borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer",
+                        border:`1.5px solid ${form.day===d?"#c06a47":"#e2dbd0"}`,
+                        background: form.day===d?"#c06a47":"#fff",
+                        color: form.day===d?"#fff":"#6f675c",
+                      }}>
+                      {d}
+                    </button>
+                  ))}
                 </div>
               </div>
               <div>
