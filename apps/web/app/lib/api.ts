@@ -56,7 +56,7 @@ export function toTxn(e: ApiExpense, idx: number): Txn {
       : new Date().toISOString().split("T")[0],
     amount: isCredit ? e.amount : -e.amount,
     cat: catKey(e.category_name),
-    merchant: e.merchant || "Unknown",
+    merchant: e.merchant || e.note || e.category_name || "Unknown",
     note: e.note || "",
     source: e.source.startsWith("recurring")
       ? "recurring"
