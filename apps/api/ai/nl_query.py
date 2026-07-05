@@ -27,8 +27,9 @@ VALID_RANGES = {
 }
 
 CATEGORIES = [
-    "Food", "Groceries", "Transport", "Rent", "Utilities", "Entertainment",
-    "Shopping", "Health", "Subscriptions", "Education", "Misc",
+    "Food", "Groceries", "Transport", "Rent", "Entertainment",
+    "Shopping", "Health", "Subscriptions", "Investment", "Credit Card",
+    "Family", "Misc",
 ]
 
 SYSTEM_PROMPT = f"""You translate a user's personal-finance question into a structured query.
