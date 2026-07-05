@@ -10,12 +10,13 @@ CATEGORIES = [
     "Groceries",
     "Transport",
     "Rent",
-    "Utilities",
     "Entertainment",
     "Shopping",
     "Health",
     "Subscriptions",
-    "Education",
+    "Investment",
+    "Credit Card",
+    "Family",
     "Misc",
 ]
 
