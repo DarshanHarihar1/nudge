@@ -12,6 +12,7 @@ from bot.application import create_application
 from routers.auth import router as auth_router
 from routers.cron import router as cron_router
 from routers.dashboard import router as dashboard_router
+from routers.email import router as email_router
 from routers.shortcut import router as shortcut_router
 
 _telegram_app: Application | None = None
@@ -49,6 +50,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(cron_router)
 app.include_router(dashboard_router)
+app.include_router(email_router)
 app.include_router(shortcut_router)
 
 
