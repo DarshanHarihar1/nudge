@@ -50,9 +50,21 @@ async def process_debit_email(
     if not user:
         return {"ok": False, "reason": "user_not_registered"}
 
-    classified = await classify_expense(f"{parsed.amount} at {parsed.payee}")
+    try:
+        classified = await classify_expense(f"{parsed.amount} at {parsed.payee}")
+    except Exception:
+        await bot.send_message(
+            chat_id=allowed_telegram_id,
+            text="⚠️ Got a debit alert I couldn't classify (LLM providers down?). Log it manually if it was real.",
+        )
+        return {"ok": False, "reason": "classification_failed"}
+
     category = await get_category_by_name(pool, str(user["id"]), classified.category)
     if not category:
+        await bot.send_message(
+            chat_id=allowed_telegram_id,
+            text="⚠️ Got a debit alert but couldn't match a category. Run /start to reset categories.",
+        )
         return {"ok": False, "reason": "category_not_found"}
 
     low_confidence = needs_recategorize(classified.confidence)
