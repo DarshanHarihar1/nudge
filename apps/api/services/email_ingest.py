@@ -1,12 +1,17 @@
 """
 Orchestrates the email debit-alert flow: parse -> filter -> dedupe ->
 classify -> store -> notify. Mirrors bot/handlers/expense.py's Telegram
-text flow, reusing its classification call and confirm/recategorize UI.
+text flow, reusing its classification call, budget-alert check, and
+confirm/recategorize UI.
 """
+from datetime import datetime
+from typing import Optional
+
+import asyncpg
 from telegram import Bot
 
 from ai.classify import classify_expense
-from bot.handlers.expense import post_keyboard, recategorize_keyboard
+from bot.handlers.expense import check_budget_alert, post_keyboard, recategorize_keyboard
 from bot.utils.format import format_amount
 from db.queries import (
     create_expense,
@@ -15,14 +20,30 @@ from db.queries import (
     get_user,
 )
 from utils.email_parser import parse_ubi_debit_email
+from utils.timezone import IST
 
 # Below this classification confidence, don't guess — ask via the
 # recategorize picker immediately instead of showing OK/Recategorize/Delete.
 LOW_CONFIDENCE_THRESHOLD = 0.6
 
+# Bank-confirmed non-completions — safe to skip without notifying, since no
+# money moved. Any OTHER status is unexpected and gets a Telegram notice
+# instead of a silent drop, since the bank template's exact status wording
+# beyond "Success" isn't something this parser was built against real
+# examples of.
+KNOWN_NON_SUCCESS_STATUSES = {"failed", "declined", "rejected"}
+
 
 def needs_recategorize(confidence: float) -> bool:
     return confidence < LOW_CONFIDENCE_THRESHOLD
+
+
+def _parse_spent_at(occurred_at: str) -> Optional[datetime]:
+    """Bank format: 'DD-MM-YYYY HH:MM:SS' in IST. Returns None if unparseable."""
+    try:
+        return datetime.strptime(occurred_at, "%d-%m-%Y %H:%M:%S").replace(tzinfo=IST)
+    except (ValueError, TypeError):
+        return None
 
 
 async def process_debit_email(
@@ -40,7 +61,13 @@ async def process_debit_email(
         )
         return {"ok": False, "reason": "unparseable"}
 
-    if parsed.status.lower() != "success":
+    status_lower = parsed.status.lower()
+    if status_lower != "success":
+        if status_lower not in KNOWN_NON_SUCCESS_STATUSES:
+            await bot.send_message(
+                chat_id=allowed_telegram_id,
+                text=f'📧 Got a debit alert with an unexpected status ("{parsed.status}") — log it manually if it was a real transaction.',
+            )
         return {"ok": False, "reason": f"status={parsed.status}"}
 
     if await get_expense_by_email_ref(pool, parsed.rrn):
@@ -72,20 +99,34 @@ async def process_debit_email(
     # Confident guesses are inserted already-confirmed (no tap required to
     # count toward totals/budgets); unsure ones stay pending until a
     # category is picked, same as recategorize_expense() already does.
-    expense = await create_expense(
-        pool,
-        user_id=str(user["id"]),
-        amount=parsed.amount,
-        currency=parsed.currency,
-        category_id=str(category["id"]),
-        merchant=parsed.payee,
-        raw_text=message_text,
-        source="email",
-        status="pending" if low_confidence else "confirmed",
-        confidence=classified.confidence,
-        llm_provider=classified.provider,
-        email_ref=parsed.rrn,
-    )
+    try:
+        expense = await create_expense(
+            pool,
+            user_id=str(user["id"]),
+            amount=parsed.amount,
+            currency=parsed.currency,
+            category_id=str(category["id"]),
+            merchant=parsed.payee,
+            raw_text=message_text,
+            source="email",
+            status="pending" if low_confidence else "confirmed",
+            confidence=classified.confidence,
+            llm_provider=classified.provider,
+            email_ref=parsed.rrn,
+            spent_at=_parse_spent_at(parsed.occurred_at),
+        )
+    except asyncpg.UniqueViolationError:
+        # Benign race: a concurrent redelivery of the same email won the
+        # insert between our pre-check above and this insert. The
+        # transaction is already logged under the other request — nothing
+        # to notify, this is the same outcome as the pre-check catching it.
+        return {"ok": False, "reason": "duplicate"}
+    except Exception:
+        await bot.send_message(
+            chat_id=allowed_telegram_id,
+            text="⚠️ Got a debit alert but couldn't save it. Log it manually.",
+        )
+        return {"ok": False, "reason": "insert_failed"}
 
     label = (
         f"{format_amount(parsed.amount, parsed.currency)} → "
@@ -104,6 +145,14 @@ async def process_debit_email(
             chat_id=allowed_telegram_id,
             text=f"🏦 Logged {label}",
             reply_markup=post_keyboard(str(expense["id"])),
+        )
+        await check_budget_alert(
+            pool=pool,
+            bot=bot,
+            chat_id=allowed_telegram_id,
+            user=user,
+            category=category,
+            currency=parsed.currency,
         )
 
     return {"ok": True, "id": str(expense["id"])}

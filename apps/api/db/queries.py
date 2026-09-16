@@ -3,6 +3,8 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
 
+from utils.timezone import now_ist
+
 DEFAULT_CATEGORIES = [
     {"name": "Food", "emoji": "🍴"},
     {"name": "Groceries", "emoji": "🛒"},
@@ -150,9 +152,9 @@ async def create_expense(pool: asyncpg.Pool, **data) -> dict:
         INSERT INTO expenses (
             user_id, amount, currency, category_id, merchant, note,
             raw_text, source, status, confidence, llm_provider,
-            telegram_update_id, email_ref
+            telegram_update_id, email_ref, spent_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         RETURNING *
         """,
         data["user_id"],
@@ -168,6 +170,7 @@ async def create_expense(pool: asyncpg.Pool, **data) -> dict:
         data.get("llm_provider"),
         data.get("telegram_update_id"),
         data.get("email_ref"),
+        data.get("spent_at") or now_ist(),
     )
     return dict(row)
 

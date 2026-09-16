@@ -10,7 +10,7 @@ from typing import Optional
 
 _BLOCK_RE = re.compile(
     r"Transaction Details.*?(?=If you have not initiated|Alert Section|$)",
-    re.S,
+    re.S | re.I,
 )
 _FIELD_RE = re.compile(r"\d+\.\s*([^:<]+?)\s*:\s*([^<\n]+)")
 _AMOUNT_RE = re.compile(r"([\d,]+\.?\d*)")

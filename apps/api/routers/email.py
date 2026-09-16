@@ -12,6 +12,12 @@ from services.email_ingest import process_debit_email
 
 router = APIRouter(prefix="/email", tags=["email"])
 
+# Composio's `query` filter already restricts polling to this sender, but a
+# mis-scoped filter (or a future Composio config change) shouldn't be able
+# to feed arbitrary mail into the money path — the shared secret is the
+# real control, this is cheap defense-in-depth on top of it.
+EXPECTED_SENDER = "noreplyubi-txn@ubi.bank.in"
+
 
 @router.post("/webhook")
 async def email_webhook(
@@ -22,6 +28,10 @@ async def email_webhook(
         raise HTTPException(status_code=403, detail="Forbidden")
 
     body = await request.json()
+    sender = body.get("sender", "")
+    if EXPECTED_SENDER not in sender:
+        return {"ok": False, "reason": "unexpected_sender"}
+
     message_text = body.get("message_text", "")
     subject = body.get("subject", "")
 
@@ -30,4 +40,4 @@ async def email_webhook(
     result = await process_debit_email(
         pool, bot, TELEGRAM_ALLOWED_ID, message_text, subject
     )
-    return {"ok": True, **result}
+    return result

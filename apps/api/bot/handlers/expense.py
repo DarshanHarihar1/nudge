@@ -73,7 +73,7 @@ def post_keyboard(expense_id: str) -> InlineKeyboardMarkup:
     )
 
 
-async def _check_budget_alert(
+async def check_budget_alert(
     pool,
     bot,
     chat_id: int,
@@ -177,7 +177,7 @@ async def expense_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     )
 
     # Budget alert fires after the expense is logged (status='pending' is still counted)
-    await _check_budget_alert(
+    await check_budget_alert(
         pool=pool,
         bot=context.bot,
         chat_id=update.effective_chat.id,
