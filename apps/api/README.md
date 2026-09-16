@@ -49,7 +49,7 @@ apps/api/
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | POST | `/webhook` | Telegram secret header | Bot updates |
-| POST | `/email/webhook` | `X-Webhook-Secret` header | Composio Gmail trigger → bank debit-alert ingestion |
+| POST | `/email/webhook` | Composio webhook signature (`webhook-signature`/`webhook-id`/`webhook-timestamp`) | Composio's project webhook → bank debit-alert ingestion |
 | GET | `/health` | public | Keep-warm + DB ping |
 | GET | `/auth/telegram/callback` | widget signature | Login → set session cookie |
 | POST | `/auth/logout` | — | Clear session |
