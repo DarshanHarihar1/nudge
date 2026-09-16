@@ -25,11 +25,45 @@ CB_CAT = "exp:cat:"
 CB_DEL = "exp:del:"
 
 
-def _confirm_keyboard(expense_id: str) -> InlineKeyboardMarkup:
+def confirm_keyboard(expense_id: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [
                 InlineKeyboardButton("✅ OK", callback_data=f"{CB_OK}{expense_id}"),
+                InlineKeyboardButton(
+                    "✏️ Recategorize", callback_data=f"{CB_RECAT}{expense_id}"
+                ),
+                InlineKeyboardButton("🗑 Delete", callback_data=f"{CB_DEL}{expense_id}"),
+            ]
+        ]
+    )
+
+
+async def recategorize_keyboard(
+    pool, user_id: str, expense_id: str
+) -> InlineKeyboardMarkup:
+    cats = await list_categories(pool, user_id)
+    rows: list[list[InlineKeyboardButton]] = []
+    current_row: list[InlineKeyboardButton] = []
+    for c in cats:
+        current_row.append(
+            InlineKeyboardButton(
+                f"{c['emoji']} {c['name']}",
+                callback_data=f"{CB_CAT}{expense_id}:{c['id']}",
+            )
+        )
+        if len(current_row) == 3:
+            rows.append(current_row)
+            current_row = []
+    if current_row:
+        rows.append(current_row)
+    return InlineKeyboardMarkup(rows)
+
+
+def post_keyboard(expense_id: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [
                 InlineKeyboardButton(
                     "✏️ Recategorize", callback_data=f"{CB_RECAT}{expense_id}"
                 ),
@@ -139,7 +173,7 @@ async def expense_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         chat_id=update.effective_chat.id,
         message_id=thinking_msg.message_id,
         text=f"Logged {label}",
-        reply_markup=_confirm_keyboard(str(expense["id"])),
+        reply_markup=confirm_keyboard(str(expense["id"])),
     )
 
     # Budget alert fires after the expense is logged (status='pending' is still counted)
@@ -179,23 +213,8 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         if not user:
             return
 
-        cats = await list_categories(pool, str(user["id"]))
-        rows: list[list[InlineKeyboardButton]] = []
-        current_row: list[InlineKeyboardButton] = []
-        for i, c in enumerate(cats):
-            current_row.append(
-                InlineKeyboardButton(
-                    f"{c['emoji']} {c['name']}",
-                    callback_data=f"{CB_CAT}{expense_id}:{c['id']}",
-                )
-            )
-            if len(current_row) == 3:
-                rows.append(current_row)
-                current_row = []
-        if current_row:
-            rows.append(current_row)
-
-        await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(rows))
+        keyboard = await recategorize_keyboard(pool, str(user["id"]), expense_id)
+        await query.edit_message_reply_markup(reply_markup=keyboard)
 
     elif data.startswith(CB_CAT):
         rest = data[len(CB_CAT):]
