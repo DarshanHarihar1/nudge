@@ -149,9 +149,10 @@ async def create_expense(pool: asyncpg.Pool, **data) -> dict:
         """
         INSERT INTO expenses (
             user_id, amount, currency, category_id, merchant, note,
-            raw_text, source, status, confidence, llm_provider, telegram_update_id
+            raw_text, source, status, confidence, llm_provider,
+            telegram_update_id, email_ref
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
         RETURNING *
         """,
         data["user_id"],
@@ -166,8 +167,18 @@ async def create_expense(pool: asyncpg.Pool, **data) -> dict:
         str(data["confidence"]) if data.get("confidence") is not None else None,
         data.get("llm_provider"),
         data.get("telegram_update_id"),
+        data.get("email_ref"),
     )
     return dict(row)
+
+
+async def get_expense_by_email_ref(
+    pool: asyncpg.Pool, email_ref: str
+) -> Optional[dict]:
+    row = await pool.fetchrow(
+        "SELECT * FROM expenses WHERE email_ref = $1", email_ref
+    )
+    return dict(row) if row else None
 
 
 async def confirm_expense(pool: asyncpg.Pool, expense_id: str) -> None:
