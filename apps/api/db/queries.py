@@ -3,6 +3,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
 
+from utils.payee import normalize_payee
 from utils.timezone import now_ist
 
 DEFAULT_CATEGORIES = [
@@ -188,6 +189,7 @@ async def confirm_expense(pool: asyncpg.Pool, expense_id: str) -> None:
     await pool.execute(
         "UPDATE expenses SET status = 'confirmed' WHERE id = $1", expense_id
     )
+    await remember_payee_category(pool, expense_id)
 
 
 async def recategorize_expense(
@@ -198,6 +200,7 @@ async def recategorize_expense(
         category_id,
         expense_id,
     )
+    await remember_payee_category(pool, expense_id)
 
 
 async def delete_expense(pool: asyncpg.Pool, expense_id: str) -> None:
@@ -796,6 +799,8 @@ async def update_expense(pool: asyncpg.Pool, expense_id: str, **data) -> Optiona
         f"UPDATE expenses SET {', '.join(fields)} WHERE id = ${idx} RETURNING *",
         *values,
     )
+    if row and ("category_id" in data or "merchant" in data):
+        await remember_payee_category(pool, expense_id)
     return dict(row) if row else None
 
 
@@ -873,3 +878,56 @@ async def set_gmail_history_id(pool: asyncpg.Pool, history_id: int) -> None:
         """,
         history_id,
     )
+
+
+# ── Payee → category memory ──────────────────────────────────────────────────
+
+async def remember_payee_category(pool: asyncpg.Pool, expense_id: str) -> None:
+    """The user's latest choice for a payee wins."""
+    row = await pool.fetchrow(
+        "SELECT user_id, merchant, category_id FROM expenses WHERE id = $1", expense_id
+    )
+    key = normalize_payee(row["merchant"]) if row else None
+    if not key or not row["category_id"]:
+        return
+    await pool.execute(
+        """
+        INSERT INTO payee_categories (user_id, payee_key, category_id)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (user_id, payee_key)
+        DO UPDATE SET category_id = EXCLUDED.category_id, updated_at = now()
+        """,
+        row["user_id"], key, row["category_id"],
+    )
+
+
+async def learned_category(
+    pool: asyncpg.Pool, user_id: str, merchant: Optional[str]
+) -> Optional[dict]:
+    key = normalize_payee(merchant)
+    if not key:
+        return None
+    row = await pool.fetchrow(
+        """
+        SELECT c.* FROM payee_categories p
+        JOIN categories c ON c.id = p.category_id
+        WHERE p.user_id = $1 AND p.payee_key = $2 AND c.is_active
+        """,
+        user_id, key,
+    )
+    return dict(row) if row else None
+
+
+async def recent_payee_choices(
+    pool: asyncpg.Pool, user_id: str, limit: int = 15
+) -> list[tuple[str, str]]:
+    rows = await pool.fetch(
+        """
+        SELECT p.payee_key, c.name FROM payee_categories p
+        JOIN categories c ON c.id = p.category_id
+        WHERE p.user_id = $1 AND c.is_active
+        ORDER BY p.updated_at DESC LIMIT $2
+        """,
+        user_id, limit,
+    )
+    return [(r["payee_key"], r["name"]) for r in rows]
