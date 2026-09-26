@@ -18,13 +18,16 @@ from db.queries import (
     get_category_by_name,
     get_expense_by_email_ref,
     get_user,
+    learned_category,
+    recent_payee_choices,
 )
 from utils.email_parser import parse_ubi_debit_email
 from utils.timezone import IST
 
-# Below this classification confidence, don't guess — ask via the
-# recategorize picker immediately instead of showing OK/Recategorize/Delete.
-LOW_CONFIDENCE_THRESHOLD = 0.6
+# Confident enough to log without asking.
+AUTO_CONFIRM_CONFIDENCE = 0.8
+# Unsure and at least this big: ask immediately instead of in tonight's digest.
+ASK_NOW_AMOUNT = 5000
 
 # Bank-confirmed non-completions — safe to skip without notifying, since no
 # money moved. Any OTHER status is unexpected and gets a Telegram notice
@@ -34,8 +37,11 @@ LOW_CONFIDENCE_THRESHOLD = 0.6
 KNOWN_NON_SUCCESS_STATUSES = {"failed", "declined", "rejected"}
 
 
-def needs_recategorize(confidence: float) -> bool:
-    return confidence < LOW_CONFIDENCE_THRESHOLD
+def decide_route(confidence: float, amount: float, from_memory: bool) -> str:
+    """auto = log confirmed; ask_now = pending + picker now; ask_later = pending, nightly digest."""
+    if from_memory or confidence >= AUTO_CONFIRM_CONFIDENCE:
+        return "auto"
+    return "ask_now" if amount >= ASK_NOW_AMOUNT else "ask_later"
 
 
 def _parse_spent_at(occurred_at: str) -> Optional[datetime]:
@@ -77,41 +83,44 @@ async def process_debit_email(
     if not user:
         return {"ok": False, "reason": "user_not_registered"}
 
-    try:
-        classified = await classify_expense(f"{parsed.amount} at {parsed.payee}")
-    except Exception:
-        await bot.send_message(
-            chat_id=allowed_telegram_id,
-            text="⚠️ Got a debit alert I couldn't classify (LLM providers down?). Log it manually if it was real.",
-        )
-        return {"ok": False, "reason": "classification_failed"}
+    user_id = str(user["id"])
+    category = await learned_category(pool, user_id, parsed.payee)
+    if category:
+        confidence, provider = 1.0, "memory"
+    else:
+        try:
+            examples = await recent_payee_choices(pool, user_id)
+            classified = await classify_expense(f"{parsed.amount} at {parsed.payee}", examples)
+        except Exception:
+            await bot.send_message(
+                chat_id=allowed_telegram_id,
+                text="⚠️ Got a debit alert I couldn't classify (LLM providers down?). Log it manually if it was real.",
+            )
+            return {"ok": False, "reason": "classification_failed"}
+        category = await get_category_by_name(pool, user_id, classified.category)
+        if not category:
+            await bot.send_message(
+                chat_id=allowed_telegram_id,
+                text="⚠️ Got a debit alert but couldn't match a category. Run /start to reset categories.",
+            )
+            return {"ok": False, "reason": "category_not_found"}
+        confidence, provider = classified.confidence, classified.provider
 
-    category = await get_category_by_name(pool, str(user["id"]), classified.category)
-    if not category:
-        await bot.send_message(
-            chat_id=allowed_telegram_id,
-            text="⚠️ Got a debit alert but couldn't match a category. Run /start to reset categories.",
-        )
-        return {"ok": False, "reason": "category_not_found"}
+    route = decide_route(confidence, parsed.amount, provider == "memory")
 
-    low_confidence = needs_recategorize(classified.confidence)
-
-    # Confident guesses are inserted already-confirmed (no tap required to
-    # count toward totals/budgets); unsure ones stay pending until a
-    # category is picked, same as recategorize_expense() already does.
     try:
         expense = await create_expense(
             pool,
-            user_id=str(user["id"]),
+            user_id=user_id,
             amount=parsed.amount,
             currency=parsed.currency,
             category_id=str(category["id"]),
             merchant=parsed.payee,
             raw_text=message_text,
             source="email",
-            status="pending" if low_confidence else "confirmed",
-            confidence=classified.confidence,
-            llm_provider=classified.provider,
+            status="confirmed" if route == "auto" else "pending",
+            confidence=confidence,
+            llm_provider=provider,
             email_ref=parsed.rrn,
             spent_at=_parse_spent_at(parsed.occurred_at),
         )
@@ -133,14 +142,7 @@ async def process_debit_email(
         f"{category['emoji']} {category['name']} ({parsed.payee})"
     )
 
-    if low_confidence:
-        keyboard = await recategorize_keyboard(pool, str(user["id"]), str(expense["id"]))
-        await bot.send_message(
-            chat_id=allowed_telegram_id,
-            text=f"🏦 {label} — not sure about the category, pick one:",
-            reply_markup=keyboard,
-        )
-    else:
+    if route == "auto":
         await bot.send_message(
             chat_id=allowed_telegram_id,
             text=f"🏦 Logged {label}",
@@ -154,5 +156,13 @@ async def process_debit_email(
             category=category,
             currency=parsed.currency,
         )
+    elif route == "ask_now":
+        keyboard = await recategorize_keyboard(pool, user_id, str(expense["id"]))
+        await bot.send_message(
+            chat_id=allowed_telegram_id,
+            text=f"🏦 {label} — not sure about the category, pick one:",
+            reply_markup=keyboard,
+        )
+    # ask_later: saved as pending; tonight's digest asks.
 
-    return {"ok": True, "id": str(expense["id"])}
+    return {"ok": True, "id": str(expense["id"]), "route": route}

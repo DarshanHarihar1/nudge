@@ -1,17 +1,17 @@
 import pytest
 
-from services.email_ingest import needs_recategorize, _parse_spent_at
+from services.email_ingest import _parse_spent_at, decide_route
 
 
-@pytest.mark.parametrize("confidence,expected", [
-    (0.0, True),
-    (0.59, True),
-    (0.6, False),
-    (0.61, False),
-    (1.0, False),
+@pytest.mark.parametrize("confidence,amount,from_memory,expected", [
+    (1.0, 50_000, True, "auto"),      # remembered payee, any amount
+    (0.8, 100, False, "auto"),        # boundary: 0.8 is confident
+    (0.79, 100, False, "ask_later"),
+    (0.5, 4999.99, False, "ask_later"),
+    (0.5, 5000, False, "ask_now"),    # big and unsure: ask right away
 ])
-def test_needs_recategorize(confidence, expected):
-    assert needs_recategorize(confidence) is expected
+def test_decide_route(confidence, amount, from_memory, expected):
+    assert decide_route(confidence, amount, from_memory) == expected
 
 
 def test_parse_spent_at_valid():
