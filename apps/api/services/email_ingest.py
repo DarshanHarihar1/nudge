@@ -11,7 +11,8 @@ from typing import Optional
 import asyncpg
 from telegram import Bot
 
-from ai.classify import classify_expense
+from ai.classify import CATEGORIES, classify_expense
+from ai.investigator import investigate
 from bot.handlers.expense import check_budget_alert, post_keyboard, recategorize_keyboard
 from bot.utils.format import format_amount
 from db.queries import (
@@ -132,6 +133,20 @@ async def process_debit_email(
             return {"ok": False, "reason": "category_not_found"}
         confidence, provider = classified.confidence, classified.provider
 
+        if confidence < AUTO_CONFIRM_CONFIDENCE:
+            try:
+                found = await investigate(
+                    pool, user_id, parsed.payee, parsed.amount, spent_at, CATEGORIES
+                )
+            except Exception:
+                found = None  # agent down or gave up: keep the classifier's guess
+            if found:
+                note = "\n".join(filter(None, [note, found.evidence])) or None
+                if found.confidence > confidence:
+                    better = await get_category_by_name(pool, user_id, found.category)
+                    if better:
+                        category, confidence, provider = better, found.confidence, "investigator"
+
     route = decide_route(confidence, parsed.amount, provider == "memory")
 
     try:
@@ -187,7 +202,7 @@ async def process_debit_email(
         keyboard = await recategorize_keyboard(pool, user_id, str(expense["id"]))
         await bot.send_message(
             chat_id=allowed_telegram_id,
-            text=f"🏦 {label} — not sure about the category, pick one:",
+            text=f"🏦 {label} — not sure about the category, pick one:" + (f"\n{note}" if note else ""),
             reply_markup=keyboard,
         )
     # ask_later: saved as pending; tonight's digest asks.
