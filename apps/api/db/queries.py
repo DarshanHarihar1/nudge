@@ -959,3 +959,15 @@ async def link_email_to_expense(
         "UPDATE expenses SET email_ref = $2, merchant = COALESCE(merchant, $3) WHERE id = $1",
         expense_id, email_ref, merchant,
     )
+
+
+async def list_unsure_email_expenses(pool: asyncpg.Pool, user_id: str, since) -> list[dict]:
+    rows = await pool.fetch(
+        """
+        SELECT * FROM expenses
+        WHERE user_id = $1 AND source = 'email' AND status = 'pending' AND created_at >= $2
+        ORDER BY spent_at
+        """,
+        user_id, since,
+    )
+    return [dict(r) for r in rows]

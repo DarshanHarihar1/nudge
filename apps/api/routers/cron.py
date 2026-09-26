@@ -8,6 +8,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from config import CRON_SECRET, TELEGRAM_ALLOWED_ID
 from services import gmail_sync
 from services.detection import run_detection
+from services.digest import send_category_digest
 from services.recurring import apply_recurring_items
 from services.summary import send_daily_summary, send_expense_reminder, send_monthly_summary, send_weekly_summary
 
@@ -39,7 +40,8 @@ async def cron_daily_summary(request: Request):
     pool = request.app.state.pool
     bot = request.app.state.telegram_app.bot
     result = await send_daily_summary(pool, bot, TELEGRAM_ALLOWED_ID)
-    return {"ok": True, **result}
+    digest = await send_category_digest(pool, bot, TELEGRAM_ALLOWED_ID)
+    return {"ok": True, **result, "digest": digest}
 
 
 # ── expense-reminder ───────────────────────────────────────────────────────────
