@@ -971,3 +971,20 @@ async def list_unsure_email_expenses(pool: asyncpg.Pool, user_id: str, since) ->
         user_id, since,
     )
     return [dict(r) for r in rows]
+
+
+async def list_payee_history(pool: asyncpg.Pool, user_id: str, payee: str, limit: int = 10) -> list[dict]:
+    rows = await pool.fetch(
+        """
+        SELECT e.amount, e.spent_at, e.status, e.note, c.name AS category
+        FROM expenses e LEFT JOIN categories c ON c.id = e.category_id
+        WHERE e.user_id = $1 AND lower(e.merchant) = lower($2) AND e.status <> 'cleared'
+        ORDER BY e.spent_at DESC LIMIT $3
+        """,
+        user_id, payee, limit,
+    )
+    return [
+        {"amount": str(r["amount"]), "date": r["spent_at"].date().isoformat(),
+         "category": r["category"], "confirmed": r["status"] == "confirmed", "note": r["note"]}
+        for r in rows
+    ]

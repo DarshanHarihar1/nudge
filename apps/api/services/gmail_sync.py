@@ -80,6 +80,28 @@ def header(payload: dict, name: str) -> str:
     return ""
 
 
+async def search_messages(query: str, limit: int = 5) -> list[dict]:
+    """Sender, subject and Gmail's short snippet only — never full bodies,
+    which keeps the untrusted email text an agent sees small."""
+    async with _gmail() as client:
+        r = await client.get(f"{API}/messages", params={"q": query, "maxResults": limit})
+        r.raise_for_status()
+        found = []
+        for m in r.json().get("messages", []):
+            d = await client.get(
+                f"{API}/messages/{m['id']}",
+                params={"format": "metadata", "metadataHeaders": ["From", "Subject"]},
+            )
+            d.raise_for_status()
+            body = d.json()
+            found.append({
+                "from": header(body["payload"], "From"),
+                "subject": header(body["payload"], "Subject"),
+                "snippet": body.get("snippet", ""),
+            })
+        return found
+
+
 async def sync(pool, bot, chat_id: int) -> dict:
     """Process every bank alert added to the label since the stored cursor.
     Safe to re-run: the RRN unique key makes reprocessing a no-op."""
