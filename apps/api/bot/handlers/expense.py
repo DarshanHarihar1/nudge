@@ -1,3 +1,5 @@
+import base64
+import uuid
 from decimal import Decimal
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -25,6 +27,16 @@ CB_CAT = "exp:cat:"
 CB_DEL = "exp:del:"
 
 
+# Telegram caps callback_data at 64 bytes; "exp:cat:" plus two 36-char UUIDs
+# is 81, so the category picker packs each UUID into 22 base64url chars (53).
+def pack_uuid(value: str) -> str:
+    return base64.urlsafe_b64encode(uuid.UUID(value).bytes).decode().rstrip("=")
+
+
+def unpack_uuid(value: str) -> str:
+    return str(uuid.UUID(bytes=base64.urlsafe_b64decode(value + "==")))
+
+
 def confirm_keyboard(expense_id: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
@@ -49,7 +61,7 @@ async def recategorize_keyboard(
         current_row.append(
             InlineKeyboardButton(
                 f"{c['emoji']} {c['name']}",
-                callback_data=f"{CB_CAT}{expense_id}:{c['id']}",
+                callback_data=f"{CB_CAT}{pack_uuid(expense_id)}:{pack_uuid(str(c['id']))}",
             )
         )
         if len(current_row) == 3:
@@ -217,10 +229,9 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         await query.edit_message_reply_markup(reply_markup=keyboard)
 
     elif data.startswith(CB_CAT):
-        rest = data[len(CB_CAT):]
-        colon_idx = rest.index(":")
-        expense_id = rest[:colon_idx]
-        category_id = rest[colon_idx + 1:]
+        packed_expense, packed_category = data[len(CB_CAT):].split(":")
+        expense_id = unpack_uuid(packed_expense)
+        category_id = unpack_uuid(packed_category)
 
         await recategorize_expense(pool, expense_id, category_id)
         await query.edit_message_reply_markup(reply_markup=None)
