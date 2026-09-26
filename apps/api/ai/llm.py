@@ -64,3 +64,21 @@ async def generate_json(system: str, text: str, temperature: float = 0.1) -> tup
                 return await _generate(client, FALLBACK_MODEL, system, text, temperature), FALLBACK_MODEL
             except Exception as e:
                 raise RuntimeError(f"All LLM providers exhausted. Last error: {e}") from e
+
+
+async def generate_content(model: str, system: str, contents: list[dict], tools: list[dict]) -> dict:
+    """One tool-calling turn. Returns the model's content verbatim — callers
+    must send it back unchanged (Gemini 3 thought signatures live in it)."""
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        r = await client.post(
+            f"{API}/{model}:generateContent",
+            headers={"x-goog-api-key": os.environ["GEMINI_API_KEY"]},
+            json={
+                "systemInstruction": {"parts": [{"text": system}]},
+                "contents": contents,
+                "tools": [{"functionDeclarations": tools}],
+                "generationConfig": {"temperature": 0.1},
+            },
+        )
+        r.raise_for_status()
+        return r.json()["candidates"][0]["content"]
