@@ -19,10 +19,13 @@ from db.queries import (
     get_expense_by_email_ref,
     get_user,
     learned_category,
+    link_email_to_expense,
+    list_expenses_near,
     recent_payee_choices,
 )
 from utils.email_parser import parse_ubi_debit_email
-from utils.timezone import IST
+from services.dedupe import pick_duplicate
+from utils.timezone import IST, now_ist
 
 # Confident enough to log without asking.
 AUTO_CONFIRM_CONFIDENCE = 0.8
@@ -84,6 +87,17 @@ async def process_debit_email(
         return {"ok": False, "reason": "user_not_registered"}
 
     user_id = str(user["id"])
+    spent_at = _parse_spent_at(parsed.occurred_at) or now_ist()
+    manual = pick_duplicate(
+        parsed.amount, spent_at,
+        await list_expenses_near(pool, user_id, spent_at, ["telegram", "shortcut"], unlinked_only=True),
+    )
+    if manual:
+        # Already logged by hand — attach the bank reference so redeliveries
+        # dedupe on RRN, and don't add it twice.
+        await link_email_to_expense(pool, str(manual["id"]), parsed.rrn, parsed.payee)
+        return {"ok": True, "id": str(manual["id"]), "route": "merged"}
+
     category = await learned_category(pool, user_id, parsed.payee)
     if category:
         confidence, provider = 1.0, "memory"
@@ -122,7 +136,7 @@ async def process_debit_email(
             confidence=confidence,
             llm_provider=provider,
             email_ref=parsed.rrn,
-            spent_at=_parse_spent_at(parsed.occurred_at),
+            spent_at=spent_at,
         )
     except asyncpg.UniqueViolationError:
         # Benign race: a concurrent redelivery of the same email won the

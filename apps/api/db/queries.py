@@ -3,6 +3,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
 
+from services.dedupe import DUPLICATE_WINDOW
 from utils.payee import normalize_payee
 from utils.timezone import now_ist
 
@@ -931,3 +932,30 @@ async def recent_payee_choices(
         user_id, limit,
     )
     return [(r["payee_key"], r["name"]) for r in rows]
+
+
+# ── Bank alert ↔ manual entry matching ───────────────────────────────────────
+
+async def list_expenses_near(
+    pool: asyncpg.Pool, user_id: str, at, sources: list[str], unlinked_only: bool
+) -> list[dict]:
+    rows = await pool.fetch(
+        """
+        SELECT * FROM expenses
+        WHERE user_id = $1 AND source = ANY($2::text[])
+          AND spent_at BETWEEN $3 AND $4
+          AND status <> 'cleared'
+          AND (NOT $5 OR email_ref IS NULL)
+        """,
+        user_id, sources, at - DUPLICATE_WINDOW, at + DUPLICATE_WINDOW, unlinked_only,
+    )
+    return [dict(r) for r in rows]
+
+
+async def link_email_to_expense(
+    pool: asyncpg.Pool, expense_id: str, email_ref: str, merchant: str
+) -> None:
+    await pool.execute(
+        "UPDATE expenses SET email_ref = $2, merchant = COALESCE(merchant, $3) WHERE id = $1",
+        expense_id, email_ref, merchant,
+    )

@@ -17,10 +17,12 @@ from db.queries import (
     get_user,
     learned_category,
     list_categories,
+    list_expenses_near,
     recategorize_expense,
     recent_payee_choices,
     update_category_budget_alert,
 )
+from services.dedupe import pick_duplicate
 from utils.timezone import current_month_str
 
 CB_OK = "exp:ok:"
@@ -186,6 +188,24 @@ async def expense_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     )
 
     label = f"{format_amount(classified.amount, classified.currency)} → {category['emoji']} {category['name']}"
+
+    email_twin = pick_duplicate(
+        classified.amount, expense["spent_at"],
+        await list_expenses_near(pool, str(user["id"]), expense["spent_at"], ["email"], unlinked_only=False),
+    )
+    if email_twin:
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=thinking_msg.message_id,
+            text=f"Logged {label}\n⚠️ Looks like your bank alert already logged this "
+                 f"({email_twin['merchant']}, {format_amount(email_twin['amount'], classified.currency)}).",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🗑 Delete this one", callback_data=f"{CB_DEL}{expense['id']}"),
+                InlineKeyboardButton("✅ Keep both", callback_data=f"{CB_OK}{expense['id']}"),
+            ]]),
+        )
+        return
+
     await context.bot.edit_message_text(
         chat_id=update.effective_chat.id,
         message_id=thinking_msg.message_id,
