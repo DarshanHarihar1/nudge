@@ -24,7 +24,7 @@ bills, and activity history.
 ## Architecture
 
 ```
-Telegram ──▶ apps/api (FastAPI, Render)  ──▶ Groq / OpenRouter (expense classification)
+Telegram ──▶ apps/api (FastAPI, Render)  ──▶ Gemini API (expense classification)
                     │
                     ▼
           Supabase Postgres (asyncpg)
@@ -54,7 +54,7 @@ GitHub Actions (cron) ──▶ hits /cron/* endpoints on schedule
 | Backend | FastAPI + python-telegram-bot + asyncpg |
 | Frontend | Next.js 16 (App Router, TypeScript) |
 | Database | Supabase Postgres |
-| LLM | Groq (primary), OpenRouter (fallback) |
+| LLM | Gemma via Gemini API (primary), Gemini Flash (fallback) |
 | Backend hosting | Render |
 | Frontend hosting | Vercel |
 | Scheduling | GitHub Actions cron |
@@ -80,7 +80,7 @@ pnpm --filter @nudge/web dev
 ### Environment variables
 
 Copy `.env.example` at the repo root for the full list (Telegram bot token,
-Supabase connection string, Groq/OpenRouter keys, cron secret, session
+Supabase connection string, Gemini API key, cron secret, session
 secret, app URLs). Required by `apps/api`; `apps/web` only needs the API's
 public URL.
 

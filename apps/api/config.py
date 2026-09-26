@@ -15,8 +15,8 @@ DATABASE_URL: str = _require("DATABASE_URL")
 TELEGRAM_BOT_TOKEN: str = _require("TELEGRAM_BOT_TOKEN")
 TELEGRAM_WEBHOOK_SECRET: str = _require("TELEGRAM_WEBHOOK_SECRET")
 TELEGRAM_ALLOWED_ID: int = int(_require("TELEGRAM_ALLOWED_ID"))
-GROQ_API_KEY: str = _require("GROQ_API_KEY")
-OPENROUTER_API_KEY: str = os.environ.get("OPENROUTER_API_KEY", "")
+# Gemini API (ai/llm.py): free Gemma first, Flash fallback.
+GEMINI_API_KEY: str = _require("GEMINI_API_KEY")
 CRON_SECRET: str = _require("CRON_SECRET")
 # Gmail push ingestion (services/gmail_sync.py). Optional: until all are set,
 # /email/gmail-push and /cron/gmail-watch return 503. Client ID/secret come

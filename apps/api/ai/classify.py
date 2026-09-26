@@ -1,9 +1,8 @@
-import json
-import os
 from typing import Optional
 
-import httpx
 from pydantic import BaseModel
+
+from ai.llm import generate_json
 
 CATEGORIES = [
     "Food",
@@ -45,68 +44,7 @@ class ClassifiedExpense(BaseModel):
     provider: str
 
 
-def _is_rate_limit_error(err: Exception) -> bool:
-    msg = str(err).lower()
-    return any(x in msg for x in ["429", "rate limit", "quota", "too many requests"])
-
-
-async def _classify_with_groq(text: str) -> ClassifiedExpense:
-    from groq import AsyncGroq
-
-    api_key = os.environ.get("GROQ_API_KEY", "")
-    if not api_key:
-        raise ValueError("GROQ_API_KEY not set")
-
-    client = AsyncGroq(api_key=api_key)
-    response = await client.chat.completions.create(
-        model="llama-3.1-8b-instant",
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": text},
-        ],
-        response_format={"type": "json_object"},
-        temperature=0.1,
-    )
-    data = json.loads(response.choices[0].message.content)
-    data["provider"] = "groq"
-    return ClassifiedExpense(**data)
-
-
-async def _classify_with_openrouter(text: str) -> ClassifiedExpense:
-    api_key = os.environ.get("OPENROUTER_API_KEY", "")
-    if not api_key:
-        raise ValueError("OPENROUTER_API_KEY not set")
-
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            "https://openrouter.ai/api/v1/chat/completions",
-            headers={"Authorization": f"Bearer {api_key}"},
-            json={
-                "model": "meta-llama/llama-3.1-8b-instruct:free",
-                "messages": [
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": text},
-                ],
-                "response_format": {"type": "json_object"},
-                "temperature": 0.1,
-            },
-            timeout=30.0,
-        )
-        response.raise_for_status()
-        content = response.json()["choices"][0]["message"]["content"]
-        parsed = json.loads(content)
-        parsed["provider"] = "openrouter"
-        return ClassifiedExpense(**parsed)
-
-
 async def classify_expense(text: str) -> ClassifiedExpense:
-    try:
-        return await _classify_with_groq(text)
-    except Exception as e:
-        if not _is_rate_limit_error(e):
-            raise
-
-    try:
-        return await _classify_with_openrouter(text)
-    except Exception as e:
-        raise RuntimeError(f"All LLM providers exhausted. Last error: {e}") from e
+    data, model = await generate_json(SYSTEM_PROMPT, text)
+    data["provider"] = model
+    return ClassifiedExpense(**data)

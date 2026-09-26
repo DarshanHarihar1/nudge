@@ -8,9 +8,9 @@ the allowlist before execution.
 """
 from __future__ import annotations
 
-import json
-import os
 from typing import Optional
+
+from ai.llm import generate_json
 
 ALLOWED_FUNCTIONS = {"sumByCategory", "topMerchants", "totalSpend", "countExpenses"}
 
@@ -89,27 +89,11 @@ def validate_mapping(raw: dict) -> Optional[dict]:
 
 async def map_nl_query(text: str) -> Optional[dict]:
     """
-    Use Groq to map free text to a validated {function, params} mapping.
+    Use the LLM to map free text to a validated {function, params} mapping.
     Returns None when the query can't be mapped (caller sends a fallback).
     """
-    api_key = os.environ.get("GROQ_API_KEY", "")
-    if not api_key:
-        return None
-
     try:
-        from groq import AsyncGroq
-
-        client = AsyncGroq(api_key=api_key)
-        response = await client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": text},
-            ],
-            response_format={"type": "json_object"},
-            temperature=0.0,
-        )
-        raw = json.loads(response.choices[0].message.content)
+        raw, _ = await generate_json(SYSTEM_PROMPT, text, temperature=0.0)
     except Exception:
         return None
 

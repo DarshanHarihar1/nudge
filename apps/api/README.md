@@ -66,7 +66,8 @@ apps/api/
 ├── main.py              # FastAPI app: /webhook, /health, mounts routers
 ├── config.py            # env-var loading
 ├── ai/
-│   ├── classify.py      # expense classification (Groq → OpenRouter fallback)
+│   ├── llm.py           # Gemini API JSON calls (Gemma → Flash fallback)
+│   ├── classify.py      # expense classification
 │   └── nl_query.py      # NL question → allowlisted {function, params}
 ├── bot/
 │   ├── application.py    # PTB handler registration
