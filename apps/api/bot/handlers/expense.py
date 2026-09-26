@@ -15,8 +15,10 @@ from db.queries import (
     get_category_mtd_spend,
     get_expense_by_update_id,
     get_user,
+    learned_category,
     list_categories,
     recategorize_expense,
+    recent_payee_choices,
     update_category_budget_alert,
 )
 from utils.timezone import current_month_str
@@ -146,7 +148,8 @@ async def expense_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     thinking_msg = await update.message.reply_text("⏳ Logging…")
 
     try:
-        classified = await classify_expense(text)
+        examples = await recent_payee_choices(pool, str(user["id"]))
+        classified = await classify_expense(text, examples)
     except Exception:
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
@@ -155,7 +158,9 @@ async def expense_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         )
         return
 
-    category = await get_category_by_name(pool, str(user["id"]), classified.category)
+    # A remembered choice for this payee beats the model's guess.
+    category = await learned_category(pool, str(user["id"]), classified.merchant) \
+        or await get_category_by_name(pool, str(user["id"]), classified.category)
     if not category:
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,

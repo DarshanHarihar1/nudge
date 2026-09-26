@@ -44,7 +44,18 @@ class ClassifiedExpense(BaseModel):
     provider: str
 
 
-async def classify_expense(text: str) -> ClassifiedExpense:
-    data, model = await generate_json(SYSTEM_PROMPT, text)
+def build_system_prompt(examples: list[tuple[str, str]]) -> str:
+    if not examples:
+        return SYSTEM_PROMPT
+    lines = "\n".join(f"- {payee} → {category}" for payee, category in examples)
+    return (
+        f"{SYSTEM_PROMPT}\n\n"
+        "This user's own past choices (payee → category). Use the same category "
+        f"for the same or clearly similar payees:\n{lines}"
+    )
+
+
+async def classify_expense(text: str, examples: list[tuple[str, str]] = ()) -> ClassifiedExpense:
+    data, model = await generate_json(build_system_prompt(list(examples)), text)
     data["provider"] = model
     return ClassifiedExpense(**data)
