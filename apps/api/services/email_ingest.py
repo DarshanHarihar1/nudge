@@ -4,6 +4,7 @@ classify -> store -> notify. Mirrors bot/handlers/expense.py's Telegram
 text flow, reusing its classification call, budget-alert check, and
 confirm/recategorize UI.
 """
+from dataclasses import replace
 from datetime import datetime
 from typing import Optional
 
@@ -23,7 +24,8 @@ from db.queries import (
     list_expenses_near,
     recent_payee_choices,
 )
-from utils.email_parser import parse_ubi_debit_email
+from services.fx import to_inr
+from utils.email_parser import IGNORE, UBI_SENDER, parse_bank_email
 from services.dedupe import pick_duplicate
 from utils.timezone import IST, now_ist
 
@@ -61,8 +63,11 @@ async def process_debit_email(
     allowed_telegram_id: int,
     message_text: str,
     subject: str,
+    sender: str = UBI_SENDER,
 ) -> dict:
-    parsed = parse_ubi_debit_email(message_text)
+    parsed = parse_bank_email(sender, subject, message_text)
+    if parsed is IGNORE:
+        return {"ok": True, "reason": "not_a_spend"}
     if not parsed:
         await bot.send_message(
             chat_id=allowed_telegram_id,
@@ -85,6 +90,13 @@ async def process_debit_email(
     user = await get_user(pool, allowed_telegram_id)
     if not user:
         return {"ok": False, "reason": "user_not_registered"}
+
+    note = None
+    if parsed.currency != "INR":
+        inr = await to_inr(parsed.amount, parsed.currency)
+        if inr is not None:
+            note = f"{parsed.currency} {parsed.amount:.2f} ≈ ₹{inr:,.2f} at today's rate"
+            parsed = replace(parsed, amount=inr, currency="INR")
 
     user_id = str(user["id"])
     spent_at = _parse_spent_at(parsed.occurred_at) or now_ist()
@@ -137,6 +149,7 @@ async def process_debit_email(
             llm_provider=provider,
             email_ref=parsed.rrn,
             spent_at=spent_at,
+            note=note,
         )
     except asyncpg.UniqueViolationError:
         # Benign race: a concurrent redelivery of the same email won the

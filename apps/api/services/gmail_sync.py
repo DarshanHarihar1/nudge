@@ -25,13 +25,13 @@ from config import (
 )
 from db.queries import get_gmail_history_id, set_gmail_history_id
 from services.email_ingest import process_debit_email
+from utils.email_parser import BANK_SENDERS
 
 API = "https://gmail.googleapis.com/gmail/v1/users/me"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 
-# The Gmail filter already scopes the label to this sender, but a mis-set
+# The Gmail filter already scopes the label to these senders, but a mis-set
 # filter shouldn't be able to feed arbitrary mail into the money path.
-EXPECTED_SENDER = "noreplyubi-txn@ubi.bank.in"
 
 # ponytail: in-process lock — fine for the single Render instance; switch to a
 # pg advisory lock if the API ever runs more than one instance.
@@ -123,10 +123,11 @@ async def sync(pool, bot, chat_id: int) -> dict:
                     continue  # deleted before we got to it
                 r.raise_for_status()
                 payload = r.json()["payload"]
-                if EXPECTED_SENDER not in header(payload, "From"):
+                sender = header(payload, "From")
+                if not any(bank in sender for bank in BANK_SENDERS):
                     continue
                 results.append(await process_debit_email(
-                    pool, bot, chat_id, extract_body(payload), header(payload, "Subject")
+                    pool, bot, chat_id, extract_body(payload), header(payload, "Subject"), sender
                 ))
 
         # Only advance once everything is handled — a crash above leaves the

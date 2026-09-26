@@ -26,7 +26,8 @@ Pub/Sub POSTs it to `/email/gmail-push`, which fetches the mail and logs the
 expense (`services/gmail_sync.py`). One-time setup:
 
 1. **Gmail filter.** In Gmail → Settings → Filters → Create filter:
-   From `noreplyubi-txn@ubi.bank.in` → *Apply the label* → new label `nudge-bank`.
+   From `noreplyubi-txn@ubi.bank.in OR alerts@axis.bank.in` → *Apply the label* →
+   new label `nudge-bank`. (UBI = UPI debits, Axis = credit card spends.)
    (Also tick *Also apply filter to matching conversations*.)
 2. **Google Cloud project.** At console.cloud.google.com create a project
    (e.g. `nudge-gmail`). Enable **Gmail API** and **Cloud Pub/Sub API**
