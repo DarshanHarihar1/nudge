@@ -857,3 +857,19 @@ async def get_expenses_for_detection(
         user_id, since,
     )
     return [dict(r) for r in rows]
+
+
+# ── Gmail sync cursor ─────────────────────────────────────────────────────────
+
+async def get_gmail_history_id(pool: asyncpg.Pool) -> Optional[int]:
+    return await pool.fetchval("SELECT history_id FROM gmail_sync WHERE id = 1")
+
+
+async def set_gmail_history_id(pool: asyncpg.Pool, history_id: int) -> None:
+    await pool.execute(
+        """
+        INSERT INTO gmail_sync (id, history_id) VALUES (1, $1)
+        ON CONFLICT (id) DO UPDATE SET history_id = $1, updated_at = now()
+        """,
+        history_id,
+    )

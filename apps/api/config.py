@@ -18,10 +18,18 @@ TELEGRAM_ALLOWED_ID: int = int(_require("TELEGRAM_ALLOWED_ID"))
 GROQ_API_KEY: str = _require("GROQ_API_KEY")
 OPENROUTER_API_KEY: str = os.environ.get("OPENROUTER_API_KEY", "")
 CRON_SECRET: str = _require("CRON_SECRET")
-# Signs every event Composio POSTs to /email/webhook (Svix-style HMAC).
-# Issued by Composio when the project's webhook URL is registered in their
-# dashboard — not a value we generate ourselves.
-COMPOSIO_WEBHOOK_SECRET: str = _require("COMPOSIO_WEBHOOK_SECRET")
+# Gmail push ingestion (services/gmail_sync.py). Optional: until all are set,
+# /email/gmail-push and /cron/gmail-watch return 503. Client ID/secret come
+# from a Google Cloud OAuth "Desktop app" client; scripts/gmail_auth.py
+# prints the refresh token and label ID.
+GMAIL_CLIENT_ID: str = os.environ.get("GMAIL_CLIENT_ID", "")
+GMAIL_CLIENT_SECRET: str = os.environ.get("GMAIL_CLIENT_SECRET", "")
+GMAIL_REFRESH_TOKEN: str = os.environ.get("GMAIL_REFRESH_TOKEN", "")
+GMAIL_LABEL_ID: str = os.environ.get("GMAIL_LABEL_ID", "")
+# e.g. projects/<gcp-project>/topics/<topic>
+GMAIL_PUBSUB_TOPIC: str = os.environ.get("GMAIL_PUBSUB_TOPIC", "")
+# Random string we choose; goes in the Pub/Sub push URL as ?token=...
+GMAIL_PUSH_TOKEN: str = os.environ.get("GMAIL_PUSH_TOKEN", "")
 APP_URL: str = os.environ.get("APP_URL", "http://localhost:8000")
 # Public URL of the Next.js dashboard — used by the /login command to build
 # magic links that bypass the Telegram login widget.

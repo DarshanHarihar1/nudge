@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from config import CRON_SECRET, TELEGRAM_ALLOWED_ID
+from services import gmail_sync
 from services.detection import run_detection
 from services.recurring import apply_recurring_items
 from services.summary import send_daily_summary, send_expense_reminder, send_monthly_summary, send_weekly_summary
@@ -73,3 +74,24 @@ async def cron_monthly_summary(request: Request):
     summary = await send_monthly_summary(pool, bot, TELEGRAM_ALLOWED_ID)
     detection = await run_detection(pool, bot, TELEGRAM_ALLOWED_ID)
     return {"ok": True, "summary": summary, "detection": detection}
+
+
+# ── gmail-watch ───────────────────────────────────────────────────────────────
+
+@router.post("/gmail-watch", dependencies=[Depends(_verify_secret)])
+async def cron_gmail_watch(request: Request):
+    """Daily 06:00 IST — renew the Gmail watch (expires after 7 days) and catch up on missed pushes."""
+    if not gmail_sync.is_configured():
+        raise HTTPException(status_code=503, detail="Gmail ingestion not configured")
+    pool = request.app.state.pool
+    bot = request.app.state.telegram_app.bot
+    try:
+        return await gmail_sync.renew_watch(pool, bot, TELEGRAM_ALLOWED_ID)
+    except Exception as e:
+        # A silently lapsed watch means bank alerts just stop arriving, so
+        # say so loudly — and fail the workflow run too.
+        await bot.send_message(
+            chat_id=TELEGRAM_ALLOWED_ID,
+            text=f"⚠️ Gmail watch renewal failed ({type(e).__name__}: {e}). Bank alerts stop being logged within 7 days unless this is fixed.",
+        )
+        raise HTTPException(status_code=502, detail="Gmail watch renewal failed")
